@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Achadinhos ML</title>
+
+<style>
+:root{
+  --yellow:#ffd400;
+  --card: rgba(255,255,255,.9);
+  --shadow:0 18px 40px rgba(0,0,0,.35);
+  --radius:22px;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#111}
+.wrap{max-width:1100px;margin:auto;padding:14px}
+
+/* ✅ TOPO MENOR */
+.top{
+  background:var(--yellow);
+  border-radius:var(--radius);
+  padding:14px 16px;           /* antes era maior */
+  text-align:center;
+  box-shadow:var(--shadow);
+}
+.logo{
+  width:260px;                 /* antes 320px */
+  max-width:82%;
+  height:auto;
+}
+
+/* card */
+.poster{background:var(--card);margin-top:12px;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.title{text-align:center;padding:16px}
+.title h1{margin:0;font-size:25px;font-weight:900}
+
+/* ✅ VÍDEO MENOR */
+.videoCard{
+  margin:10px 14px 0;
+  background:#fff;
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 12px 26px rgba(0,0,0,.18);
+}
+.videoHead{
+  padding:10px 12px 0;
+  font-weight:1000;
+  text-align:center;
+}
+.videoWrap{
+  background:#000;
+  display:flex;
+  justify-content:center;
+  padding:8px 10px;            /* cria respiro e ajuda a parecer menor */
+}
+.videoWrap video{
+  width:100%;
+  max-width:820px;             /* limita tamanho no PC */
+  height:auto;
+  display:block;
+  border-radius:12px;
+  background:#000;
+}
+
+/* reduz um pouco mais no PC */
+@media(min-width:900px){
+  .videoWrap video{ max-width:740px; }
+}
+
+.videoControls{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  justify-content:center;
+  padding:10px 12px;
+}
+.vbtn{
+  padding:10px 14px;
+  border-radius:12px;
+  border:1px solid #e6e6e6;
+  background:#fff;
+  font-weight:1000;
+  cursor:pointer;
+}
+.vbtn.primary{
+  background:var(--yellow);
+  border-color:transparent;
+}
+
+/* faixa vermelha */
+.redbar{background:#c62828;color:#fff;margin:12px 14px 0;border-radius:16px;padding:14px}
+.qgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-weight:bold}
+@media(max-width:700px){.qgrid{grid-template-columns:1fr}}
+
+/* texto */
+.lead{text-align:center;padding:14px;font-weight:bold}
+
+/* seções */
+.section{padding:14px 18px}
+.section h2{text-align:center;font-size:22px;margin-bottom:8px}
+.hint{text-align:center;font-weight:bold;margin-bottom:10px}
+.notice{display:none}
+
+/* destaque */
+.featured{
+  margin: 12px 14px 0;
+  border-radius:16px;
+  overflow:hidden;
+  box-shadow:0 12px 26px rgba(0,0,0,.18);
+  background:#fff;
+  display:grid;
+  grid-template-columns: 1.1fr 1fr;
+}
+@media(max-width:850px){ .featured{grid-template-columns:1fr} }
+.featured .imgwrap{background:#fff;display:flex;align-items:center;justify-content:center;padding:10px}
+.featured img{width:100%;height:260px;object-fit:contain} /* um pouco menor */
+.featured .content{padding:14px;background:linear-gradient(180deg, rgba(255,212,0,.35), rgba(255,255,255,1))}
+.badgeTop{display:inline-block;background:#111;color:#fff;padding:6px 10px;border-radius:999px;font-weight:1000;font-size:12px}
+.featured h3{margin:10px 0 8px;font-size:20px}
+.pricesLine{display:flex;gap:10px;flex-wrap:wrap;align-items:baseline;margin:8px 0 6px}
+.old{color:#777;text-decoration:line-through;font-weight:900}
+.new{font-weight:1000;font-size:20px}
+.offPill{background:#dff3e1;color:#1b5e20;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:1000}
+.couponPill{background:#e8f0fe;color:#1a73e8;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:1000}
+.metaLine{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.soldPill{background:#fff3cd;color:#7a5200;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:1000;border:1px solid rgba(0,0,0,.06)}
+.ratingPill{background:#f1f3f4;color:#111;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:1000;border:1px solid rgba(0,0,0,.06)}
+.timer{margin-top:10px;font-weight:900}
+.actionsRow{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.ctaWide{display:inline-block;background:var(--yellow);color:#000;padding:12px 16px;border-radius:14px;font-weight:1000;text-decoration:none}
+.secondaryBtn{display:inline-block;background:#fff;color:#111;padding:12px 16px;border-radius:14px;font-weight:1000;text-decoration:none;border:1px solid #e6e6e6;cursor:pointer}
+
+/* carrossel */
+.carousel{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;padding:2px 4px 10px}
+.carousel::-webkit-scrollbar{height:8px}
+.carousel::-webkit-scrollbar-thumb{background:#bbb;border-radius:999px}
+.carditem{flex:0 0 82%;background:#fff;border-radius:16px;box-shadow:0 10px 20px rgba(0,0,0,.2);text-decoration:none;color:#000;scroll-snap-align:start;overflow:hidden}
+.carditem img{width:100%;height:250px;object-fit:contain;background:#fff;display:block} /* um pouco menor */
+.cardinfo{padding:12px}
+.cardinfo strong{display:block;margin-bottom:6px}
+.prices{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.newSmall{font-weight:1000;font-size:18px}
+.offSmall{background:#dff3e1;color:#1b5e20;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:1000}
+.couponSmall{background:#e8f0fe;color:#1a73e8;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:1000}
+.metaSmall{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.soldSmall{background:#fff3cd;color:#7a5200;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:1000;border:1px solid rgba(0,0,0,.06)}
+.ratingSmall{background:#f1f3f4;color:#111;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:1000;border:1px solid rgba(0,0,0,.06)}
+.cardActions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.cardBtn{border:1px solid #e6e6e6;background:#fff;border-radius:12px;padding:10px 12px;font-weight:1000;cursor:pointer}
+.cardBtn.primary{background:var(--yellow);border-color:transparent}
+
+/* botões rolar */
+.carousel-controls{display:flex;justify-content:center;gap:10px;margin-top:8px}
+.cbtn{padding:10px 14px;border-radius:12px;border:none;background:var(--yellow);font-weight:900;cursor:pointer}
+.cbtn:active{transform:translateY(1px)}
+
+/* PC */
+@media(min-width:900px){
+  .offers-grid{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;overflow:visible!important;padding:0!important}
+  .offers-grid .carditem{flex:initial}
+  #trackPromos .carditem{flex:0 0 340px}
+}
+.carousel.no-scroll{justify-content:center}
+.carousel.no-scroll .carditem{flex:0 0 340px}
+
+/* atenção */
+.attention{margin:14px;border-radius:16px;overflow:hidden}
+.att-top{background:#ffb300;text-align:center;font-weight:900;padding:12px}
+.att-body{background:#222;color:#fff;text-align:center;padding:14px}
+.cta{display:inline-block;margin-top:10px;background:var(--yellow);color:#000;padding:12px 18px;border-radius:14px;font-weight:900;text-decoration:none}
+
+footer{text-align:center;color:#aaa;font-size:12px;margin-top:10px}
+.toast{
+  position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+  background:#111;color:#fff;padding:10px 12px;border-radius:999px;
+  font-weight:900;box-shadow:0 12px 24px rgba(0,0,0,.35);
+  opacity:0;pointer-events:none;transition:opacity .25s ease;
+}
+.toast.show{opacity:1}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+  <div class="top">
+    <img src="logo.png" class="logo" alt="Achadinhos ML">
+  </div>
+
+  <main class="poster">
+    <div class="title">
+      <h1>Descubra como comprar online com segurança, pagando menos e sem cair em golpes</h1>
+    </div>
+
+    <!-- ✅ VÍDEO (menor) -->
+    <div class="videoCard">
+      <div class="videoHead">🎥 Assista rapidinho (10 segundos)</div>
+      <div class="videoWrap">
+        <video id="introVideo"
+          src="video.mp4"
+          playsinline
+          muted
+          autoplay
+          loop
+          preload="metadata"
+        ></video>
+      </div>
+      <div class="videoControls">
+        <button class="vbtn primary" id="btnPlayPause" type="button">⏸ Pausar</button>
+        <button class="vbtn" id="btnMute" type="button">🔇 Sem som</button>
+      </div>
+    </div>
+
+    <div class="redbar">
+      <div class="qgrid">
+        <div>✔ E se não chegar?</div>
+        <div>✔ E se eu perder meu dinheiro?</div>
+        <div>✔ E se for falso?</div>
+        <div>✔ E se for golpe?</div>
+      </div>
+    </div>
+
+    <div class="lead">
+      Agora você encontra ofertas reais todos os dias. Entre no grupo e pegue os links.
+    </div>
+
+    <div id="status" class="notice">Carregando…</div>
+
+    <!-- destaque -->
+    <div id="featuredWrap" class="featured" style="display:none;">
+      <div class="imgwrap"><img id="featuredImg" alt="Destaque do dia"></div>
+      <div class="content">
+        <span class="badgeTop">🔥 Melhor oferta do dia</span>
+        <h3 id="featuredTitle"></h3>
+
+        <div class="pricesLine">
+          <span class="old" id="featuredOld" style="display:none;"></span>
+          <span class="new" id="featuredNew"></span>
+          <span class="offPill" id="featuredOff" style="display:none;"></span>
+          <span class="couponPill" id="featuredCoupon" style="display:none;"></span>
+        </div>
+
+        <div class="metaLine">
+          <span class="soldPill" id="featuredSold" style="display:none;"></span>
+          <span class="ratingPill" id="featuredRating" style="display:none;"></span>
+        </div>
+
+        <div class="timer">⏳ Termina em: <span id="countdown">--:--:--</span></div>
+
+        <div class="actionsRow">
+          <a class="ctaWide" id="featuredCTA" href="#" target="_blank" rel="noopener">Ver no grupo do WhatsApp →</a>
+          <button class="secondaryBtn" id="featuredCopyCoupon" style="display:none;" type="button">Copiar cupom</button>
+          <button class="secondaryBtn" id="featuredShare" type="button">Compartilhar</button>
+        </div>
+      </div>
+    </div>
+
+    <section class="section" id="ofertas">
+      <h2>Ofertas principais 🔥</h2>
+      
+      <div class="carousel offers-grid" id="trackOfertas"></div>
+      <div class="carousel-controls">
+        <button class="cbtn" type="button" onclick="rolar('trackOfertas', -1)">⬅️</button>
+        <button class="cbtn" type="button" onclick="rolar('trackOfertas', 1)">➡️</button>
+      </div>
+    </section>
+
+    <section class="section" id="promocoes">
+      <h2>Promoções do dia ⏰</h2>
+   
+      <div class="carousel" id="trackPromos"></div>
+      <div class="carousel-controls">
+        <button class="cbtn" type="button" onclick="rolar('trackPromos', -1)">⬅️</button>
+        <button class="cbtn" type="button" onclick="rolar('trackPromos', 1)">➡️</button>
+      </div>
+    </section>
+
+    <div class="attention">
+      <div class="att-top">⚠️ Atenção!</div>
+      <div class="att-body">
+        As melhores ofertas acabam rápido.<br>
+        <a class="cta" href="https://chat.whatsapp.com/GdvrM4Ct4Q6CA6Tf0DRyov" target="_blank" rel="noopener">
+          Entrar no grupo do WhatsApp →
+        </a>
+      </div>
+    </div>
+  </main>
+
+<footer>
+  © <span id="year"></span> Achadinhos ML<br>
+  <span style="font-size:11px;color:#bbb;display:block;margin-top:6px">
+    Este site não possui vínculo oficial com o Mercado Livre. 
+    As marcas e produtos exibidos pertencem aos seus respectivos proprietários.
+    Atuamos como curadoria independente de ofertas.
+  </span>
+</footer>
+</div>
+
+<div id="toast" class="toast">Copiado!</div>
+
+<script>
+const SHEET_PUBHTML_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQYh-FJUhtB7MT80tKHccZi-z1hTKUOwDqg-tQSR_YPiDOQv-mKmSjTyAtZzmhq8YEchYOjqcVZhJv3/pubhtml";
+const SHEET_CSV_URL = SHEET_PUBHTML_URL.replace("/pubhtml", "/pub?output=csv");
+const WA_GROUP = "https://chat.whatsapp.com/GdvrM4Ct4Q6CA6Tf0DRyov";
+const AUTO_REFRESH_MS = 60 * 1000;
+
+document.getElementById("year").textContent = new Date().getFullYear();
+
+/* 🎥 controle do vídeo */
+(function initVideo(){
+  const v = document.getElementById("introVideo");
+  const btnPlayPause = document.getElementById("btnPlayPause");
+  const btnMute = document.getElementById("btnMute");
+
+  v.play().catch(()=>{});
+
+  btnPlayPause.addEventListener("click", ()=>{
+    if (v.paused){
+      v.play().catch(()=>{});
+      btnPlayPause.textContent = "⏸ Pausar";
+    } else {
+      v.pause();
+      btnPlayPause.textContent = "▶️ Reproduzir";
+    }
+  });
+
+  btnMute.addEventListener("click", ()=>{
+    v.muted = !v.muted;
+    btnMute.textContent = v.muted ? "🔇 Sem som" : "🔊 Com som";
+    if(!v.paused) v.play().catch(()=>{});
+  });
+})();
+
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg || "Feito!";
+  t.classList.add("show");
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(()=>t.classList.remove("show"), 1600);
+}
+function rolar(trackId, dir){
+  const t = document.getElementById(trackId);
+  if(!t) return;
+  const amount = Math.min(t.clientWidth * 0.85, 520) * dir;
+  t.scrollBy({ left: amount, behavior: "smooth" });
+}
+function parseCSV(text){
+  const rows = [];
+  let row = [], cur = "", inQuotes = false;
+  for (let i=0;i<text.length;i++){
+    const c = text[i], next = text[i+1];
+    if (c === '"'){
+      if (inQuotes && next === '"'){ cur += '"'; i++; }
+      else inQuotes = !inQuotes;
+      continue;
+    }
+    if (!inQuotes && (c === ',' || c === '\n' || c === '\r')){
+      if (c === '\r' && next === '\n') continue;
+      row.push(cur); cur = "";
+      if (c === '\n'){
+        if (row.some(cell => String(cell).trim().length)) rows.push(row.map(x => String(x).trim()));
+        row = [];
+      }
+      continue;
+    }
+    cur += c;
+  }
+  if (cur.length || row.length){
+    row.push(cur);
+    if (row.some(cell => String(cell).trim().length)) rows.push(row.map(x => String(x).trim()));
+  }
+  return rows;
+}
+function safeText(s){ return (s || "").replace(/</g,"&lt;"); }
+function toNumberBR(v){
+  let s = String(v || "").trim();
+  if(!s) return NaN;
+  s = s.replace(/[^\d,.\-]/g,"");
+  if (s.includes(",") && s.includes(".")) s = s.replace(/\./g,"").replace(",",".");
+  else if (s.includes(",") && !s.includes(".")) s = s.replace(",",".");
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : NaN;
+}
+function toDiscount(v){
+  let s = String(v || "").trim();
+  if(!s) return 0;
+  s = s.replace(",",".");
+  const m = s.match(/-?\d+(\.\d+)?/);
+  const n = m ? parseFloat(m[0]) : 0;
+  return Number.isFinite(n) ? n : 0;
+}
+function toRating(v){
+  let s = String(v || "").trim();
+  if(!s) return 0;
+  s = s.replace(",",".");
+  const n = parseFloat(s);
+  if(!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(5, n));
+}
+function formatBRL(n){
+  return n.toLocaleString("pt-BR", { style:"currency", currency:"BRL" });
+}
+function normalizeCoupon(v){
+  let s = String(v || "").trim();
+  if(!s) return "";
+  return s.replace(/^cupom\s*:\s*/i, "").trim();
+}
+function normalizeSold(v){
+  let s = String(v || "").trim();
+  if(!s) return "";
+  if (/^\d+$/g.test(s)) return `+${s} vendidos`;
+  if (/^\+\d+$/g.test(s)) return `${s} vendidos`;
+  return s;
+}
+function ratingText(r){
+  if(!r) return "";
+  const txt = (Math.round(r*10)/10).toString().replace(".",",");
+  return `⭐ ${txt}`;
+}
+async function copyText(text){
+  try{ await navigator.clipboard.writeText(text); toast("Copiado!"); }
+  catch{
+    const ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); document.body.removeChild(ta);
+    toast("Copiado!");
+  }
+}
+function shareWhatsApp(item){
+  const title = item?.title ? item.title : "Achadinho imperdível!";
+  const coupon = normalizeCoupon(item?.coupon);
+  const sold = normalizeSold(item?.sold);
+  const rating = ratingText(toRating(item?.rating));
+  const parts = [
+    "🔥 Achadinho!",
+    title,
+    coupon ? `🏷️ CUPOM: ${coupon}` : "",
+    sold ? `📦 ${sold}` : "",
+    rating ? `${rating}` : "",
+    "👉 Entre no grupo para pegar o link:",
+    location.href
+  ].filter(Boolean);
+  window.open(`https://wa.me/?text=${encodeURIComponent(parts.join("\n"))}`, "_blank", "noopener");
+}
+function buildCard(item){
+  const a = document.createElement("a");
+  a.className = "carditem";
+  a.href = WA_GROUP;
+  a.target = "_blank";
+  a.rel = "noopener";
+
+  const img = document.createElement("img");
+  img.src = item.image;
+  img.alt = item.title || "Oferta";
+  img.onerror = () => { img.style.display = "none"; };
+
+  const info = document.createElement("div");
+  info.className = "cardinfo";
+
+  const strong = document.createElement("strong");
+  strong.innerHTML = safeText(item.title || "");
+
+  const prices = document.createElement("div");
+  prices.className = "prices";
+
+  const p = toNumberBR(item.price);
+  const d = toDiscount(item.discount);
+  const coupon = normalizeCoupon(item.coupon);
+
+  if (Number.isFinite(p) && p > 0 && d > 0){
+    const old = document.createElement("span");
+    old.className = "old";
+    old.textContent = formatBRL(p);
+
+    const final = p * (1 - d/100);
+
+    const neu = document.createElement("span");
+    neu.className = "newSmall";
+    neu.textContent = formatBRL(final);
+
+    const off = document.createElement("span");
+    off.className = "offSmall";
+    off.textContent = `${d}% OFF`;
+
+    prices.appendChild(old);
+    prices.appendChild(neu);
+    prices.appendChild(off);
+  } else {
+    const neu = document.createElement("span");
+    neu.className = "newSmall";
+    neu.textContent = (Number.isFinite(p) && p > 0) ? formatBRL(p) : "Ver no grupo →";
+    prices.appendChild(neu);
+  }
+
+  if (coupon){
+    const cp = document.createElement("span");
+    cp.className = "couponSmall";
+    cp.textContent = `CUPOM: ${coupon}`;
+    prices.appendChild(cp);
+  }
+
+  const meta = document.createElement("div");
+  meta.className = "metaSmall";
+
+  const sold = normalizeSold(item.sold);
+  if (sold){
+    const s = document.createElement("span");
+    s.className = "soldSmall";
+    s.textContent = sold;
+    meta.appendChild(s);
+  }
+
+  const r = toRating(item.rating);
+  if (r){
+    const rr = document.createElement("span");
+    rr.className = "ratingSmall";
+    rr.textContent = ratingText(r);
+    meta.appendChild(rr);
+  }
+
+  const actions = document.createElement("div");
+  actions.className = "cardActions";
+
+  const btnGroup = document.createElement("button");
+  btnGroup.className = "cardBtn primary";
+  btnGroup.type = "button";
+  btnGroup.textContent = "Ver no grupo";
+  btnGroup.onclick = (e)=>{ e.preventDefault(); window.open(WA_GROUP, "_blank", "noopener"); };
+  actions.appendChild(btnGroup);
+
+  if (coupon){
+    const btnCopy = document.createElement("button");
+    btnCopy.className = "cardBtn";
+    btnCopy.type = "button";
+    btnCopy.textContent = "Copiar cupom";
+    btnCopy.onclick = async (e)=>{ e.preventDefault(); await copyText(coupon); };
+    actions.appendChild(btnCopy);
+  }
+
+  const btnShare = document.createElement("button");
+  btnShare.className = "cardBtn";
+  btnShare.type = "button";
+  btnShare.textContent = "Compartilhar";
+  btnShare.onclick = (e)=>{ e.preventDefault(); shareWhatsApp(item); };
+  actions.appendChild(btnShare);
+
+  info.appendChild(strong);
+  info.appendChild(prices);
+  if (meta.childNodes.length) info.appendChild(meta);
+  info.appendChild(actions);
+
+  a.appendChild(img);
+  a.appendChild(info);
+  return a;
+}
+function markScrollable(track){
+  if(!track) return;
+  const needsScroll = track.scrollWidth > (track.clientWidth + 2);
+  track.classList.toggle("no-scroll", !needsScroll);
+}
+let countdownTimer = null;
+function startCountdown(){
+  const el = document.getElementById("countdown");
+  if(!el) return;
+  function tick(){
+    const now = new Date();
+    const end = new Date();
+    end.setHours(23,59,59,999);
+    const diff = Math.max(0, end - now);
+    const h = String(Math.floor(diff/3600000)).padStart(2,"0");
+    const m = String(Math.floor((diff%3600000)/60000)).padStart(2,"0");
+    const s = String(Math.floor((diff%60000)/1000)).padStart(2,"0");
+    el.textContent = `${h}:${m}:${s}`;
+  }
+  tick();
+  if(countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(tick, 1000);
+}
+function renderFeatured(best){
+  const wrap = document.getElementById("featuredWrap");
+  if(!best){ wrap.style.display="none"; return; }
+
+  featuredImg.src = best.image;
+  featuredTitle.textContent = best.title || "Destaque do dia";
+  featuredCTA.href = WA_GROUP;
+
+  const oldEl = document.getElementById("featuredOld");
+  const newEl = document.getElementById("featuredNew");
+  const offEl = document.getElementById("featuredOff");
+  const cupEl = document.getElementById("featuredCoupon");
+  const soldEl = document.getElementById("featuredSold");
+  const ratingEl = document.getElementById("featuredRating");
+
+  const p = toNumberBR(best.price);
+  const d = toDiscount(best.discount);
+  const coupon = normalizeCoupon(best.coupon);
+
+  if (Number.isFinite(p) && p > 0 && d > 0){
+    oldEl.style.display = "";
+    offEl.style.display = "";
+    oldEl.textContent = "De: " + formatBRL(p);
+    newEl.textContent = "Por: " + formatBRL(p * (1 - d/100));
+    offEl.textContent = `${d}% OFF`;
+  } else {
+    oldEl.style.display = "none";
+    offEl.style.display = "none";
+    newEl.textContent = (Number.isFinite(p) && p > 0) ? ("Preço: " + formatBRL(p)) : "Ver no grupo →";
+  }
+
+  if (coupon){
+    cupEl.style.display = "";
+    cupEl.textContent = `CUPOM: ${coupon}`;
+  } else { cupEl.style.display = "none"; }
+
+  const sold = normalizeSold(best.sold);
+  if (sold){
+    soldEl.style.display = "";
+    soldEl.textContent = sold;
+  } else { soldEl.style.display = "none"; }
+
+  const r = toRating(best.rating);
+  if (r){
+    ratingEl.style.display = "";
+    ratingEl.textContent = ratingText(r);
+  } else { ratingEl.style.display = "none"; }
+
+  const btnCopy = document.getElementById("featuredCopyCoupon");
+  if (coupon){
+    btnCopy.style.display = "";
+    btnCopy.onclick = async ()=>{ await copyText(coupon); };
+  } else { btnCopy.style.display = "none"; }
+
+  document.getElementById("featuredShare").onclick = ()=> shareWhatsApp(best);
+
+  wrap.style.display = "grid";
+  startCountdown();
+}
+async function fetchCSVNoCache(){
+  const url = SHEET_CSV_URL + (SHEET_CSV_URL.includes("?") ? "&" : "?") + "cb=" + Date.now();
+  const res = await fetch(url, { cache:"no-store" });
+  if(!res.ok) throw new Error("Falha ao buscar CSV");
+  return res.text();
+}
+async function loadFromSheet(){
+  const ofertasWrap = document.getElementById("trackOfertas");
+  const promosWrap  = document.getElementById("trackPromos");
+  try{
+    const csv = await fetchCSVNoCache();
+    const rows = parseCSV(csv);
+    if (!rows.length) return;
+
+    const header = rows[0].map(h => (h || "").toLowerCase().trim());
+    const idx = (name) => header.indexOf(name);
+
+    const sI = idx("section");
+    const iI = idx("image");
+    const tI = idx("title");
+    const pI = idx("price");
+    const dI = idx("discount");
+    const cI = idx("coupon");
+    const soI = idx("sold");
+    const rI = idx("rating");
+
+    if (sI < 0 || iI < 0 || tI < 0) return;
+
+    const items = rows.slice(1).map(r => ({
+      section: (r[sI] || "").trim().toLowerCase(),
+      image:   (r[iI] || "").trim(),
+      title:   (r[tI] || "").trim(),
+      price:   pI >= 0 ? (r[pI] || "").trim() : "",
+      discount:dI >= 0 ? (r[dI] || "").trim() : "",
+      coupon:  cI >= 0 ? (r[cI] || "").trim() : "",
+      sold:    soI >= 0 ? (r[soI] || "").trim() : "",
+      rating:  rI >= 0 ? (r[rI] || "").trim() : ""
+    })).filter(x => x.section && x.image);
+
+    let best = null;
+    items.forEach(it=>{
+      const disc = toDiscount(it.discount);
+      if(!best || disc > toDiscount(best.discount)) best = it;
+    });
+
+    const ofertas = items.filter(x => x.section === "oferta");
+    const promos  = items.filter(x => x.section === "promo");
+
+    ofertasWrap.innerHTML = "";
+    promosWrap.innerHTML  = "";
+
+    ofertas.forEach(item => ofertasWrap.appendChild(buildCard(item)));
+    promos.forEach(item  => promosWrap.appendChild(buildCard(item)));
+
+    renderFeatured(best);
+
+    requestAnimationFrame(()=>{
+      markScrollable(promosWrap);
+      markScrollable(ofertasWrap);
+    });
+  } catch(e){}
+}
+window.addEventListener("resize", () => {
+  markScrollable(document.getElementById("trackPromos"));
+  markScrollable(document.getElementById("trackOfertas"));
+});
+loadFromSheet();
+setInterval(loadFromSheet, AUTO_REFRESH_MS);
+</script>
+</body>
+</html>
