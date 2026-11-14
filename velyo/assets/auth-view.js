@@ -1,0 +1,37 @@
+/** Login Velyo v0.7: markup puro, sem dados pessoais e sem credenciais de teste. */
+const safe = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ICONS = {
+ mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+ lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+ eye:'<path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+ arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>',
+ shield:'<path d="m12 22 7-4V6l-7-4-7 4v12l7 4Z"/><path d="m9 12 2 2 4-4"/>',
+ check:'<path d="m5 12 4 4 10-10"/>',
+ chevron:'<path d="m15 18-6-6 6-6"/>',
+ chart:'<rect x="3" y="3" width="18" height="18" rx="3"/><path d="m7 16 4-4 3 2 3-5"/>',
+ people:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+ pie:'<path d="M21.21 15.89A10 10 0 1 1 8.11 2.79"/><path d="M22 12A10 10 0 0 0 12 2v10Z"/>'
+};
+const icon = (key,cls='') => `<svg class="${cls}" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[key]}</svg>`;
+function authForm(mode,email){
+ if(mode==='recover') return `<div class="auth-mode-header"><span class="auth-mode-icon">${icon('lock')}</span><p class="auth-kicker">RECUPERAR ACESSO</p><h1>Vamos recuperar sua senha.</h1><p>Informe o e-mail cadastrado. Se a conta existir, enviaremos orientações para criar uma nova senha.</p></div>
+  <form id="recoverForm" class="auth-form"><label for="authEmail">E-mail de acesso</label><div class="auth-input-wrap">${icon('mail')}<input id="authEmail" name="email" type="email" autocomplete="email" inputmode="email" placeholder="seuemail@empresa.com.br" value="${safe(email)}" maxlength="254" required></div><button type="submit" class="auth-primary">Enviar orientações ${icon('arrow')}</button></form><button class="auth-back" type="button" id="backToLogin">${icon('chevron')} Voltar para o login</button>`;
+ if(mode==='new-password') return `<div class="auth-mode-header"><span class="auth-mode-icon">${icon('lock')}</span><p class="auth-kicker">PROTEJA SUA CONTA</p><h1>Crie uma nova senha.</h1><p>Use pelo menos 12 caracteres. Não reutilize senhas de outros serviços.</p></div><form id="newPasswordForm" class="auth-form"><label for="newPassword">Nova senha</label><div class="auth-input-wrap">${icon('lock')}<input id="newPassword" name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></div><label for="confirmPassword">Confirmar nova senha</label><div class="auth-input-wrap">${icon('lock')}<input id="confirmPassword" name="confirmation" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></div><button type="submit" class="auth-primary">Salvar nova senha ${icon('arrow')}</button></form>`;
+ return `<div class="auth-mode-header"><p class="auth-kicker">ACESSO À PLATAFORMA <span class="auth-kicker-dot">•</span> HOMOLOGAÇÃO</p><h1>Bem-vindo de volta<span class="auth-accent">.</span></h1><p>Entre para acompanhar seus clientes e os resultados do seu negócio.</p></div>
+  <form id="loginForm" class="auth-form"><div class="auth-label-row"><label for="authEmail">E-mail profissional</label></div><div class="auth-input-wrap">${icon('mail')}<input id="authEmail" name="email" type="email" autocomplete="username" inputmode="email" placeholder="seuemail@empresa.com.br" value="${safe(email)}" maxlength="254" required autofocus></div><div class="auth-label-row"><label for="authPassword">Senha</label><button type="button" id="forgotPassword" class="auth-text-action">Esqueceu a senha?</button></div><div class="auth-input-wrap password-wrap">${icon('lock')}<input id="authPassword" name="password" type="password" autocomplete="current-password" minlength="6" maxlength="128" placeholder="Digite sua senha" required><button class="auth-eye" type="button" id="togglePassword" aria-pressed="false" aria-label="Mostrar senha">${icon('eye')}</button></div><button type="submit" class="auth-primary">Entrar na plataforma ${icon('arrow')}</button></form>
+  <div class="auth-divider"><span>PRIMEIRO ACESSO?</span></div><p class="auth-help">O cadastro é realizado pelo administrador da empresa. <span>Solicite seu convite ao responsável.</span></p>`;
+}
+export function renderAuth({configured=false,mode='login',email='',area='admin' }={}) {
+ const known=['login','recover','new-password'].includes(mode)?mode:'login';
+ const areaTitle=area==='balcao'?'ACESSO AO BALCÃO':'ÁREA ADMINISTRATIVA';
+ return `<section class="auth-screen"><div class="auth-story"><div class="auth-glow a"></div><div class="auth-glow b"></div><div class="auth-dots"></div><div class="auth-story-content">
+   <a class="auth-brand" href="../" aria-label="Velyo início"><span class="auth-brand-mark"><i></i><i></i><i></i><i></i></span><strong>velyo<span>.</span></strong></a>
+   <div class="auth-story-main"><div class="auth-label"><span class="auth-signal"></span> FIDELIZAÇÃO + INTELIGÊNCIA</div><h2>Clientes que voltam.<br><em>Negócios que crescem.</em></h2><p>Um lugar para acompanhar seus clientes, entender a recompra e transformar dados em boas decisões.</p>
+   <div class="auth-visual" aria-label="Ilustração de um painel gerencial"><div class="auth-vis-header"><span>${icon('chart')} Visão do negócio</span><span class="auth-demo-pill">Exemplo visual</span></div><div class="auth-vis-columns"><div class="auth-vis-card"><span>Relacionamento</span><b>Recompra</b><div class="auth-spark"><i style="height:34%"></i><i style="height:55%"></i><i style="height:42%"></i><i style="height:70%"></i><i style="height:57%"></i><i style="height:88%"></i><i style="height:75%"></i></div></div><div class="auth-vis-card"><span>Gestão inteligente</span><b>Oportunidades</b><div class="auth-vis-rows"><div><span class="auth-line-icon purple">${icon('people')}</span><i style="width:72%"></i></div><div><span class="auth-line-icon teal">${icon('pie')}</span><i style="width:56%"></i></div><div><span class="auth-line-icon orange">${icon('chart')}</span><i style="width:84%"></i></div></div></div></div><div class="auth-vis-foot"><span class="auth-status-dot"></span> Clareza para tomar decisões melhores</div></div>
+   </div><div class="auth-story-bottom">${icon('shield')} Dados de cada empresa em um ambiente separado</div></div></div>
+   <div class="auth-login-zone"><div class="auth-mobile-brand"><span class="auth-brand-mark"><i></i><i></i><i></i><i></i></span><strong>velyo<span>.</span></strong></div><div class="auth-login-center"><div class="auth-login-head"><span class="auth-welcome-tag">${areaTitle}</span><span class="auth-environment"><span></span> Ambiente de testes</span></div>
+   ${authForm(known,email)}<div id="authFeedback" class="auth-feedback" role="status" aria-live="polite" hidden></div>
+   ${!configured?`<div class="auth-config-note">${icon('shield')} <span><strong>Prévia de interface.</strong> O banco exclusivo do Velyo ainda não está configurado. Nenhum login será enviado.</span></div>`:''}
+   <div class="auth-demo-link"><span>Quer conhecer o painel?</span><a href="../previews/${area}.html">Explorar demonstração ${icon('arrow')}</a></div>
+   </div><footer class="auth-footer"><span>© ${new Date().getFullYear()} Velyo</span><span>Fidelização e inteligência comercial</span></footer></div></section>`;
+}
