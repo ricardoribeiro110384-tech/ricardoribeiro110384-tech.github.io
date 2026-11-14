@@ -183,7 +183,7 @@ export class VelyoBackend {
   async updateProgram(tenantId,pointsPerBrl,expiryDays,isActive){
     if(!RFC_UUID.test(tenantId))throw Error('Empresa inválida.');
     const rate=Number(pointsPerBrl),days=Number(expiryDays);
-    if(!Number.isFinite(rate)||rate<0.01||rate>1000||!Number.isInteger(Math.round(rate*100))||Math.round(rate*100)!==rate*100)
+    if(!Number.isFinite(rate)||rate<0.01||rate>1000||Math.abs(rate-Math.round(rate*100)/100)>1e-8)
       throw Error('Informe entre 0,01 e 1.000 pontos por real, com até duas casas decimais.');
     if(!Number.isInteger(days)||days<1||days>3650)throw Error('Validade deve ficar entre 1 e 3.650 dias.');
     if(typeof isActive!=='boolean')throw Error('Status do programa inválido.');
