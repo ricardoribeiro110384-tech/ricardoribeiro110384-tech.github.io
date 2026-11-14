@@ -7,6 +7,22 @@ const SESSION_PREFIX = 'velyo_v10_session_';
 const TABLES = new Set(['loyalty_tenants','loyalty_memberships','loyalty_programs','loyalty_customers',
   'loyalty_accounts','loyalty_rewards','loyalty_reward_costs','loyalty_point_transactions','loyalty_point_lots','loyalty_redemptions','loyalty_platform_admins','loyalty_subscriptions']);
 const RFC_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+/** Normaliza o telefone de balcão para a chave E.164 usada pelo cadastro.
+ * Números nacionais: DDD + 8/9 dígitos; também aceita 55 + DDD + número e +E.164.
+ * Não faz busca por sufixo para evitar movimentações na conta errada.
+ */
+export function normalizePhoneE164(phone){
+  const input=String(phone??'').trim();
+  if(!input || /[^\d\s()+.\-]/.test(input)) throw Error('Informe um telefone válido com DDD.');
+  const digits=input.replace(/\D/g,'');
+  let normalized;
+  if(input.startsWith('+')) normalized='+'+digits;
+  else if(digits.length===10 || digits.length===11) normalized='+55'+digits;
+  else if(digits.startsWith('55') && (digits.length===12 || digits.length===13)) normalized='+'+digits;
+  else throw Error('Informe telefone com DDD (ex.: 89999999999).');
+  if(!/^\+[1-9]\d{7,14}$/.test(normalized)) throw Error('Telefone inválido. Confira o DDD e o número.');
+  return normalized;
+}
 function rejectUnknownTable(table) { if(!TABLES.has(table)) throw Error('Tabela não autorizada no cliente'); }
 function objectOrError(response, value) {
   if(response.ok) return value;
@@ -143,13 +159,24 @@ export class VelyoBackend {
   }
   async bundleForCounter(tenantId){
     if(!RFC_UUID.test(tenantId)) throw Error('Identificador da empresa inválido');
-    const [loyalty_customers,loyalty_rewards]=await Promise.all([
-      this.select('loyalty_customers',tenantId,{cols:'id,tenant_id,name,phone_e164',order:'name.asc',limit:500}),
-      this.select('loyalty_rewards',tenantId,{cols:'id,tenant_id,title,points_required,stock,is_active',limit:500})
-    ]);
-    return {loyalty_customers,loyalty_rewards};
+    // Não expõe a lista completa de clientes: pesquisa individual pelo telefone no atendimento.
+    const loyalty_rewards=await this.select('loyalty_rewards',tenantId,{
+      cols:'id,tenant_id,title,points_required,stock,is_active',limit:500
+    });
+    return {loyalty_rewards};
   }
-  async createCustomer(tenantId,name,phone){return this.insert('loyalty_customers',{tenant_id:tenantId,name:name.trim(),phone_e164:phone.trim()});}
+  async lookupCustomerByPhone(tenantId,phone){
+    if(!RFC_UUID.test(tenantId))throw Error('Identificador da empresa inválido');
+    const normalized=normalizePhoneE164(phone);
+    const found=await this.select('loyalty_customers',tenantId,{
+      cols:'id,tenant_id,name,phone_e164',
+      filters:{phone_e164:normalized},limit:2
+    });
+    if(found.length===0)throw Error('Cliente não encontrado para este telefone. Faça o cadastro antes de pontuar ou resgatar.');
+    if(found.length!==1)throw Error('Mais de um cadastro encontrado. Solicite revisão na Administração.');
+    return found[0];
+  }
+  async createCustomer(tenantId,name,phone){return this.insert('loyalty_customers',{tenant_id:tenantId,name:name.trim(),phone_e164:normalizePhoneE164(phone)});}
   async createReward(tenantId,title,points,stock,unitCostCents){
     return this.rpc('loyalty_create_reward',{p_tenant:tenantId,p_title:title.trim(),p_points:points,p_stock:stock,p_unit_cost_cents:unitCostCents});
   }
