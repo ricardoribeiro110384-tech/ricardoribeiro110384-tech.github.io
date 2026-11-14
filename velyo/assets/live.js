@@ -309,11 +309,11 @@ async function reload(){bundle=PORTAL==='balcao'?await api.bundleForCounter(tena
 async function onAdminClick(ev){
  const edit=ev.target.closest('[data-edit-reward]');
  if(edit&&PORTAL==='admin'){
-  editingRewardId=edit.dataset.editReward;view='rewards';show();
+  releaseRewardPhotoPreview();editingRewardId=edit.dataset.editReward;view='rewards';show();
   $('#saveReward')?.scrollIntoView({behavior:'smooth',block:'center'});
   return true;
  }
- if(ev.target.closest('#cancelEditReward')){editingRewardId='';show();return true;}
+ if(ev.target.closest('#cancelEditReward')){releaseRewardPhotoPreview();editingRewardId='';show();return true;}
  const customer=ev.target.closest('[data-show-customer]');
  if(customer&&PORTAL==='admin'){
   selectedCustomerId=customer.dataset.showCustomer;view='customers';show();
@@ -359,6 +359,18 @@ document.addEventListener('click',async ev=>{
  }
 });
 document.addEventListener('change',async ev=>{
+ if(ev.target.matches('[data-reward-photo]')){
+  const input=ev.target,form=input.closest('form'),preview=form?.querySelector('.reward-photo-preview');
+  releaseRewardPhotoPreview();
+  const file=input.files?.[0];
+  if(!file){if(preview)preview.innerHTML=rewardImage({title:'Brinde'},'lg');return;}
+  try{api.validateRewardImage(file);}catch(err){input.value='';toast(err.message,'error');return;}
+  rewardPhotoPreviewURL=URL.createObjectURL(file);
+  if(preview)preview.innerHTML=`<span class="reward-thumb lg"><img src="${e(rewardPhotoPreviewURL)}" alt="Prévia da foto selecionada"></span>`;
+  const remove=form?.querySelector('input[name="removePhoto"]');if(remove)remove.checked=false;
+  return;
+ }
+
  if(ev.target.id==='tenantSelector'){tenantId=ev.target.value;view=PORTAL==='balcao'?'counter':'dashboard';editingRewardId='';selectedCustomerId='';bundle=null;show();await run(async()=>{await load()});return;}
  if(ev.target.id==='period'){period=Number(ev.target.value);show();return;}
  if(ev.target.id==='consent'){consentOnly=ev.target.checked;show();return;}
@@ -404,18 +416,61 @@ document.addEventListener('submit',async ev=>{
  if(form.id==='saveReward'){
   if(PORTAL!=='admin'||!isManager())return toast('Apenas gestores podem editar brindes.','error');
   await run(async()=>{
+   const id=String(fd.get('rewardId')||'');
+   const old=bundle.loyalty_rewards.find(r=>r.id===id);
+   if(!old)throw Error('Brinde não encontrado na empresa.');
+   const photo=fileFromRewardForm(form),remove=fd.has('removePhoto')&&!photo;
    const raw=String(fd.get('stock')??'').trim();
-   await api.updateReward(tenantId,fd.get('rewardId'),{
-    title:fd.get('title'),points:Number(fd.get('points')),
-    stock:raw===''?null:Number(raw),isActive:fd.get('enabled')==='true'
-   });
+   let uploaded='',dataSaved=false;
+   try{
+    if(photo)uploaded=await api.uploadRewardPhoto(tenantId,photo);
+    await api.updateReward(tenantId,id,{
+     title:fd.get('title'),points:Number(fd.get('points')),
+     stock:raw===''?null:Number(raw),isActive:fd.get('enabled')==='true'
+    });
+    dataSaved=true;
+    if(uploaded)await api.setRewardPhoto(tenantId,id,uploaded);
+    else if(remove&&old.image_path)await api.setRewardPhoto(tenantId,id,null);
+   }catch(err){
+    if(uploaded)await api.removeRewardPhoto(uploaded).catch(()=>{});
+    releaseRewardPhotoPreview();
+    if(dataSaved){await reload();throw Error('As informações do brinde foram salvas, mas não foi possível alterar sua foto. Tente novamente.');}
+    throw err;
+   }
+   const oldPath=old.image_path;
+   releaseRewardPhotoPreview();
    editingRewardId='';
    await reload();
-   toast('Brinde atualizado com sucesso.');
+   if((uploaded||remove)&&oldPath){
+    try{await api.removeRewardPhoto(oldPath);}catch{toast('Brinde salvo, mas a imagem antiga não pôde ser excluída do armazenamento.','error');return;}
+   }
+   toast(uploaded?'Brinde atualizado com nova foto.':remove?'Foto removida e brinde atualizado.':'Brinde atualizado com sucesso.');
   });return;
  }
  if(form.id==='createCustomer'){await run(async()=>{await api.createCustomer(tenantId,fd.get('name'),fd.get('phone'));await reload();toast('Cliente cadastrado.');});return;}
- if(form.id==='createReward'){if(PORTAL!=='admin'||!isManager())return toast('Sem permissão para configurar recompensas.','error');await run(async()=>{const points=Number(fd.get('points')),st=fd.get('stock');const stock=st===''?null:Number(st);const cost=fd.get('cost').trim()?parseReais(fd.get('cost')):null;await api.createReward(tenantId,fd.get('title'),points,stock,cost);await reload();toast('Recompensa cadastrada.');});return;}
+ if(form.id==='createReward'){
+  if(PORTAL!=='admin'||!isManager())return toast('Sem permissão para configurar recompensas.','error');
+  await run(async()=>{
+   const photo=fileFromRewardForm(form);
+   const points=Number(fd.get('points')),raw=String(fd.get('stock')??'').trim();
+   const stock=raw===''?null:Number(raw),cost=String(fd.get('cost')??'').trim()?parseReais(fd.get('cost')):null;
+   let uploaded='',created=false;
+   try{
+    if(photo)uploaded=await api.uploadRewardPhoto(tenantId,photo);
+    const result=await api.createReward(tenantId,fd.get('title'),points,stock,cost);
+    created=true;
+    if(uploaded)await api.setRewardPhoto(tenantId,result.reward_id,uploaded);
+   }catch(err){
+    if(uploaded)await api.removeRewardPhoto(uploaded).catch(()=>{});
+    releaseRewardPhotoPreview();
+    if(created){await reload();throw Error('O brinde foi cadastrado, mas a foto não pôde ser associada. Abra Editar e tente novamente.');}
+    throw err;
+   }
+   releaseRewardPhotoPreview();
+   await reload();
+   toast(photo?'Brinde e foto cadastrados com sucesso.':'Brinde cadastrado. Você pode adicionar a foto em Editar.');
+  });return;
+ }
  if(form.id==='creditForm'){
   if(PORTAL!=='balcao')return toast('Use o painel do balcão.','error');
   await run(async()=>{
