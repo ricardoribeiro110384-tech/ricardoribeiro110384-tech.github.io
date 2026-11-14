@@ -668,39 +668,38 @@ document.addEventListener('submit',async ev=>{
    toast(photo?'Brinde e foto cadastrados com sucesso.':'Brinde cadastrado. Você pode adicionar a foto em Editar.');
   });return;
  }
+
  if(form.id==='creditForm'){
-  if(PORTAL!=='balcao')return toast('Use o painel do balcão.','error');
+  if(PORTAL!=='balcao'||!counterSession?.token)return toast('Entre no Balcão com a senha compartilhada.','error');
   await run(async()=>{
-   const customer=await api.lookupCustomerByPhone(tenantId,fd.get('phone'));
+   const customer=await api.counterFindCustomer(counterSession.token,fd.get('phone'));
    const amount=parseReais(fd.get('amount'));
    if(!Number.isSafeInteger(amount)||amount<=0)throw Error('Informe o valor válido da compra.');
    if(!window.confirm(`Confirmar compra de ${curr(amount)} para ${customer.name} (${customer.phone_e164})?`))return;
-   const fields={tenantId,customer:customer.id,amount};
+   const fields={tenantId,phone:customer.phone_e164,amount};
    const rid=requestFor('credit',fields);
-   const response=await api.credit(tenantId,customer.id,amount,rid);
+   const response=await api.counterCredit(counterSession.token,customer.phone_e164,amount,rid);
    pending.delete('credit');
    await reload();
    toast(response.replayed?'Solicitação já processada — sem duplicar pontos.':`${fmt(response.credited_points)} pontos creditados para ${customer.name}.`);
-  });
-  return;
+  });return;
  }
  if(form.id==='redeemForm'){
-  if(PORTAL!=='balcao')return toast('Use o painel do balcão.','error');
+  if(PORTAL!=='balcao'||!counterSession?.token)return toast('Entre no Balcão com a senha compartilhada.','error');
   await run(async()=>{
-   const customer=await api.lookupCustomerByPhone(tenantId,fd.get('phone'));
+   const customer=await api.counterFindCustomer(counterSession.token,fd.get('phone'));
    const reward=bundle.loyalty_rewards.find(r=>r.id===fd.get('reward')&&r.is_active&&(r.stock===null||r.stock>0));
    if(!reward)throw Error('Brinde indisponível. Atualize a página.');
-   const points=await api.balance(tenantId,customer.id);
-   if(Number(points)<Number(reward.points_required))throw Error(`Saldo insuficiente: ${customer.name} tem ${fmt(points)} pontos e o brinde exige ${fmt(reward.points_required)}.`);
+   const points=Number(customer.balance_points);
+   if(points<Number(reward.points_required))throw Error(`Saldo insuficiente: ${customer.name} tem ${fmt(points)} pontos e o brinde exige ${fmt(reward.points_required)}.`);
    if(!window.confirm(`Confirmar resgate de "${reward.title}" (${fmt(reward.points_required)} pontos) para ${customer.name} (${customer.phone_e164})? Saldo: ${fmt(points)} pontos.`))return;
-   const fields={tenantId,customer:customer.id,reward:reward.id};
+   const fields={tenantId,phone:customer.phone_e164,reward:reward.id};
    const rid=requestFor('redeem',fields);
-   const response=await api.redeem(tenantId,customer.id,reward.id,rid);
+   const response=await api.counterRedeem(counterSession.token,customer.phone_e164,reward.id,rid);
    pending.delete('redeem');
    await reload();
    toast(response.replayed?'Resgate já registrado — não duplicado.':`Brinde resgatado para ${customer.name}.`);
-  });
-  return;
+  });return;
  }
 });
 async function bootstrap(){
