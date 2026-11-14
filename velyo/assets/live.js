@@ -227,7 +227,36 @@ async function load(){
 async function run(task){if(busy)return;busy=true;try{await task();}catch(err){toast(err.message||'Falha na operação.','error')}finally{busy=false;}}
 function requestFor(kind,fields){const stamp=JSON.stringify(fields);let item=pending.get(kind);if(!item||item.stamp!==stamp){item={id:uuid(),stamp};pending.set(kind,item)}return item.id;}
 async function reload(){bundle=PORTAL==='balcao'?await api.bundleForCounter(tenantId):await api.bundle(tenantId);show();}
+async function onAdminClick(ev){
+ const edit=ev.target.closest('[data-edit-reward]');
+ if(edit&&PORTAL==='admin'){
+  editingRewardId=edit.dataset.editReward;view='rewards';show();
+  $('#saveReward')?.scrollIntoView({behavior:'smooth',block:'center'});
+  return true;
+ }
+ if(ev.target.closest('#cancelEditReward')){editingRewardId='';show();return true;}
+ const customer=ev.target.closest('[data-show-customer]');
+ if(customer&&PORTAL==='admin'){
+  selectedCustomerId=customer.dataset.showCustomer;view='customers';show();
+  $('#customerBalanceResult')?.scrollIntoView({behavior:'smooth',block:'center'});
+  return true;
+ }
+ if(ev.target.closest('#closeCustomer')){selectedCustomerId='';show();return true;}
+ const bal=ev.target.closest('[data-balance-customer]');
+ if(bal&&PORTAL==='admin'){
+  const found=bundle.loyalty_customers.find(c=>c.id===bal.dataset.balanceCustomer);
+  if(!found){toast('Cliente não encontrado nesta empresa.','error');return true;}
+  await run(async()=>{
+   const pts=await api.balance(tenantId,found.id);
+   const node=$('#customerBalanceResult');
+   if(node)node.textContent=`Saldo atualizado de ${found.name}: ${fmt(pts)} pontos válidos.`;
+  });
+  return true;
+ }
+ return false;
+}
 document.addEventListener('click',async ev=>{
+ if(await onAdminClick(ev))return;
  const viewButton=ev.target.closest('[data-view]');if(viewButton){if(!allowedViews.has(viewButton.dataset.view))return;view=viewButton.dataset.view;filter='';show();return;}
  if(ev.target.closest('#mobileMenu')){$('#sidebar')?.classList.add('open');$('#scrim')?.classList.add('open');return;}
  if(ev.target.closest('#scrim')){$('#sidebar')?.classList.remove('open');$('#scrim')?.classList.remove('open');return;}
@@ -251,7 +280,7 @@ document.addEventListener('click',async ev=>{
  }
 });
 document.addEventListener('change',async ev=>{
- if(ev.target.id==='tenantSelector'){tenantId=ev.target.value;view=PORTAL==='balcao'?'counter':'dashboard';bundle=null;show();await run(async()=>{await load()});return;}
+ if(ev.target.id==='tenantSelector'){tenantId=ev.target.value;view=PORTAL==='balcao'?'counter':'dashboard';editingRewardId='';selectedCustomerId='';bundle=null;show();await run(async()=>{await load()});return;}
  if(ev.target.id==='period'){period=Number(ev.target.value);show();return;}
  if(ev.target.id==='consent'){consentOnly=ev.target.checked;show();return;}
 });
@@ -284,6 +313,28 @@ document.addEventListener('submit',async ev=>{
   });return;
  }
  
+
+ if(form.id==='saveProgram'){
+  if(PORTAL!=='admin'||!isManager())return toast('Apenas gestores podem configurar pontos.','error');
+  await run(async()=>{
+   await api.updateProgram(tenantId,fd.get('rate'),Number(fd.get('expiry')),fd.get('enabled')==='true');
+   await reload();
+   toast('Regras de pontuação salvas. As novas regras valem para as próximas compras.');
+  });return;
+ }
+ if(form.id==='saveReward'){
+  if(PORTAL!=='admin'||!isManager())return toast('Apenas gestores podem editar brindes.','error');
+  await run(async()=>{
+   const raw=String(fd.get('stock')??'').trim();
+   await api.updateReward(tenantId,fd.get('rewardId'),{
+    title:fd.get('title'),points:Number(fd.get('points')),
+    stock:raw===''?null:Number(raw),isActive:fd.get('enabled')==='true'
+   });
+   editingRewardId='';
+   await reload();
+   toast('Brinde atualizado com sucesso.');
+  });return;
+ }
  if(form.id==='createCustomer'){await run(async()=>{await api.createCustomer(tenantId,fd.get('name'),fd.get('phone'));await reload();toast('Cliente cadastrado.');});return;}
  if(form.id==='createReward'){if(PORTAL!=='admin'||!isManager())return toast('Sem permissão para configurar recompensas.','error');await run(async()=>{const points=Number(fd.get('points')),st=fd.get('stock');const stock=st===''?null:Number(st);const cost=fd.get('cost').trim()?parseReais(fd.get('cost')):null;await api.createReward(tenantId,fd.get('title'),points,stock,cost);await reload();toast('Recompensa cadastrada.');});return;}
  if(form.id==='creditForm'){
