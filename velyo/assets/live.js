@@ -416,6 +416,13 @@ async function onAdminClick(ev){
    toast(active?'Acesso do funcionário desativado.':'Acesso do funcionário reativado.');
   });return true;
  }
+ if(ev.target.closest('#copyCounterURL')){
+  const input=$('#counterURL');
+  if(input){
+   try{await navigator.clipboard.writeText(input.value);toast('Link do Balcão copiado.');}
+   catch{input.select();toast('Selecione e copie o endereço do Balcão.','error');}
+  }return true;
+ }
  if(ev.target.closest('#copyStaffInvite')){
   const input=$('#staffInviteURL');
   if(input){
@@ -454,15 +461,22 @@ document.addEventListener('click',async ev=>{
  }
  if(ev.target.closest('#forgotPassword')){setAuthMode('recover');return;}
  if(ev.target.closest('#backToLogin')){setAuthMode('login');return;}
- if(ev.target.closest('#logout')){await run(async()=>{await api.signOut();user=null;tenants=[];tenantId='';bundle=null;membership=null;memberships=[];show();});return;}
+ if(ev.target.closest('#logout')){
+  if(PORTAL==='balcao'){
+   const token=counterSession?.token;
+   clearCounterSession();show();
+   if(token)await api.counterLogout(token).catch(()=>{});
+   return;
+  }
+  await run(async()=>{await api.signOut();user=null;tenants=[];tenantId='';bundle=null;membership=null;memberships=[];show();});return;
+ }
  if(ev.target.closest('#checkBalance')){
   const phone=$('#redeemPhone')?.value;
   if(!phone)return toast('Informe o telefone do cliente.','error');
   await run(async()=>{
-   const customer=await api.lookupCustomerByPhone(tenantId,phone);
-   const points=await api.balance(tenantId,customer.id);
+   const customer=await api.counterFindCustomer(counterSession.token,phone);
    const output=$('#balanceResult');
-   if(output)output.textContent=`${customer.name} · Saldo disponível: ${fmt(points)} pontos.`;
+   if(output)output.textContent=`${customer.name} · Saldo disponível: ${fmt(customer.balance_points)} pontos.`;
   });
   return;
  }
@@ -495,6 +509,34 @@ document.addEventListener('input',ev=>{
 });
 document.addEventListener('submit',async ev=>{
  const form=ev.target;const fd=new FormData(form);ev.preventDefault();
+ if(form.id==='counterPinLoginForm'){
+  if(PORTAL!=='balcao')return;
+  if(busy)return;
+  busy=true;
+  const button=form.querySelector('button[type="submit"]');
+  if(button)button.disabled=true;
+  try{
+   const result=await api.counterLogin(fd.get('slug'),fd.get('pin'));
+   counterSession={token:result.token,tenant_id:result.tenant_id,tenant_name:result.tenant_name,
+    tenant_slug:result.tenant_slug,expires_at:result.expires_at};
+   window.sessionStorage.setItem(COUNTER_SESSION_KEY,JSON.stringify(counterSession));
+   await loadCounter();
+  }catch(err){
+   clearCounterSession();
+   const n=$('#counterLoginFeedback');if(n)n.textContent=err.message||'Não foi possível entrar.';
+  }finally{busy=false;if(button?.isConnected)button.disabled=false;}
+  return;
+ }
+ if(form.id==='counterPinForm'){
+  if(PORTAL!=='admin'||!isManager())return toast('Somente gestores podem definir a senha do Balcão.','error');
+  if(fd.get('pin')!==fd.get('confirmation'))return toast('As senhas digitadas não coincidem.','error');
+  await run(async()=>{
+   await api.counterSetPin(tenantId,fd.get('pin'));
+   counterPinStatus=await api.counterStatus(tenantId);
+   show();
+   toast('Senha do Balcão salva. Acessos anteriores foram invalidados.');
+  });return;
+ }
  if(form.id==='loginForm'){
   if(!isConfigReady())return showAuthFeedback('O login ainda não está conectado ao novo Supabase. A demonstração do painel continua disponível.','error');
   await runAuth(form,async()=>{
@@ -593,7 +635,16 @@ document.addEventListener('submit',async ev=>{
    toast(uploaded?'Brinde atualizado com nova foto.':remove?'Foto removida e brinde atualizado.':'Brinde atualizado com sucesso.');
   });return;
  }
- if(form.id==='createCustomer'){await run(async()=>{await api.createCustomer(tenantId,fd.get('name'),fd.get('phone'));await reload();toast('Cliente cadastrado.');});return;}
+ if(form.id==='createCustomer'){
+  await run(async()=>{
+   if(PORTAL==='balcao'){
+    if(!counterSession?.token)throw Error('Entre no Balcão com a senha compartilhada.');
+    await api.counterCreateCustomer(counterSession.token,fd.get('name'),fd.get('phone'));
+   }else await api.createCustomer(tenantId,fd.get('name'),fd.get('phone'));
+   await reload();
+   toast('Cliente cadastrado.');
+  });return;
+ }
  if(form.id==='createReward'){
   if(PORTAL!=='admin'||!isManager())return toast('Sem permissão para configurar recompensas.','error');
   await run(async()=>{
