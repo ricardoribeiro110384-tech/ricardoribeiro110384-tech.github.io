@@ -268,7 +268,17 @@ function layout(){
  $('#app').innerHTML=`<div class="live-shell"><div class="live-scrim" id="scrim"></div><aside class="live-sidebar" id="sidebar"><div class="live-logo">velyo<span>.</span><small>${PORTAL==='balcao'?'ATENDIMENTO':'ADMINISTRAÇÃO'}</small></div><nav class="live-nav" aria-label="Menu principal">${nav}</nav><div class="live-bottom"><strong>Velyo · Gestão</strong>${PORTAL==='balcao'?'Área operacional. Relatórios e dados gerenciais não aparecem aqui.':'Painel exclusivo de gestores. Dados separados por estabelecimento.'}</div></aside><div class="live-main"><header class="live-topbar"><div class="live-row"><button class="live-mobile-menu" type="button" id="mobileMenu" aria-label="Abrir menu">☰</button><strong><span class="workspace-label">Workspace / </span>${e(activeTenant()?.name||'Empresa')}</strong></div><div class="right"><select id="tenantSelector" class="live-select" aria-label="Selecionar empresa">${tenants.map(t=>`<option value="${e(t.id)}" ${t.id===tenantId?'selected':''}>${e(t.name)}</option>`).join('')}</select><span class="email">${e(user?.email)}</span><button class="live-btn ghost" id="logout" type="button">Sair</button></div></header><div class="live-body">${page()}</div></div></div>`;
 }
 function login(){
- $('#app').innerHTML=renderAuth({configured:isConfigReady(),mode:authMode,email:authEmail,area:PORTAL});
+ let html=renderAuth({configured:isConfigReady(),mode:authMode,email:authEmail,area:PORTAL});
+ if(PORTAL==='balcao'&&invitationToken&&authMode==='login'){
+  const inviteHtml=`<div class="staff-invite-login"><b>Você recebeu um convite para o Balcão</b><p>Se já possui uma conta Velyo, entre com o e-mail convidado acima. Caso contrário, cadastre sua senha individual:</p>
+  <form id="staffSignupForm" class="staff-signup-form"><label>E-mail convidado<input type="email" name="email" required autocomplete="email" placeholder="seuemail@exemplo.com"></label>
+  <label>Crie sua senha (mínimo 12 caracteres)<input type="password" name="password" required minlength="12" maxlength="128" autocomplete="new-password"></label>
+  <button type="submit" class="live-btn">Criar minha conta</button></form>
+  <p class="live-note">Se for solicitado, confirme seu e-mail e depois abra novamente o link de convite enviado pelo administrador para entrar.</p>
+  <div id="staffSignupResult" role="status"></div></div>`;
+  html=html.replace('<div id="authFeedback"',inviteHtml+'<div id="authFeedback"');
+ }
+ $('#app').innerHTML=html;
 }
 function showAuthFeedback(message,type='success'){
  const area=$('#authFeedback');if(!area)return;
@@ -340,6 +350,25 @@ async function onAdminClick(ev){
   return true;
  }
  if(ev.target.closest('#closeCustomer')){selectedCustomerId='';show();return true;}
+ const toggle=ev.target.closest('[data-staff-toggle]');
+ if(toggle&&PORTAL==='admin'&&isManager()){
+  const active=toggle.dataset.staffActive==='true',id=toggle.dataset.staffToggle;
+  if(!window.confirm(active?'Desativar o acesso deste funcionário ao Balcão?':'Reativar o acesso deste funcionário ao Balcão?'))return true;
+  await run(async()=>{
+   await api.setStaffActive(tenantId,id,!active);
+   teamMembers=await api.listTeam(tenantId);
+   show();
+   toast(active?'Acesso do funcionário desativado.':'Acesso do funcionário reativado.');
+  });return true;
+ }
+ if(ev.target.closest('#copyStaffInvite')){
+  const input=$('#staffInviteURL');
+  if(input){
+   try{await navigator.clipboard.writeText(input.value);toast('Link do convite copiado.');}
+   catch{input.select();toast('Selecione e copie o link do convite.','error');}
+  }
+  return true;
+ }
  const bal=ev.target.closest('[data-balance-customer]');
  if(bal&&PORTAL==='admin'){
   const found=bundle.loyalty_customers.find(c=>c.id===bal.dataset.balanceCustomer);
@@ -401,7 +430,7 @@ document.addEventListener('change',async ev=>{
   document.querySelectorAll('[data-pick-reward]').forEach(node=>node.setAttribute('aria-pressed',String(node.dataset.pickReward===chosen)));
   return;
  }
- if(ev.target.id==='tenantSelector'){tenantId=ev.target.value;view=PORTAL==='balcao'?'counter':'dashboard';editingRewardId='';selectedCustomerId='';bundle=null;show();await run(async()=>{await load()});return;}
+ if(ev.target.id==='tenantSelector'){tenantId=ev.target.value;view=PORTAL==='balcao'?'counter':'dashboard';editingRewardId='';selectedCustomerId='';staffInviteLink='';bundle=null;show();await run(async()=>{await load()});return;}
  if(ev.target.id==='period'){period=Number(ev.target.value);show();return;}
  if(ev.target.id==='consent'){consentOnly=ev.target.checked;show();return;}
 });
@@ -413,7 +442,39 @@ document.addEventListener('submit',async ev=>{
  const form=ev.target;const fd=new FormData(form);ev.preventDefault();
  if(form.id==='loginForm'){
   if(!isConfigReady())return showAuthFeedback('O login ainda não está conectado ao novo Supabase. A demonstração do painel continua disponível.','error');
-  await runAuth(form,async()=>{await api.signIn(fd.get('email'),fd.get('password'));authMode='login';await load();});return;
+  await runAuth(form,async()=>{
+   await api.signIn(fd.get('email'),fd.get('password'));
+   authMode='login';
+   if(invitationToken){
+    try{await api.claimStaffInvite(invitationToken);}
+    catch(err){await api.signOut();throw err;}
+   }
+   await load();
+  });return;
+ }
+ if(form.id==='staffSignupForm'){
+  if(PORTAL!=='balcao'||!invitationToken)return;
+  await runAuth(form,async()=>{
+   const email=fd.get('email'),pw=fd.get('password');
+   const response=await api.signUpStaff(email,pw,window.location.origin+window.location.pathname);
+   if(response?.access_token){
+    api.saveSession(response);
+    try{await api.claimStaffInvite(invitationToken);}catch(err){await api.signOut();throw err;}
+    await load();
+    return;
+   }
+   const n=$('#staffSignupResult');
+   if(n)n.textContent='Cadastro solicitado. Confirme seu e-mail, volte ao link original do convite e entre com sua nova senha.';
+  });return;
+ }
+ if(form.id==='inviteStaffForm'){
+  if(PORTAL!=='admin'||!isManager())return toast('Apenas gestores podem convidar funcionários.','error');
+  await run(async()=>{
+   const result=await api.createStaffInvite(tenantId,fd.get('email'));
+   staffInviteLink=new URL('../balcao/?convite='+encodeURIComponent(result.token),window.location.href).href;
+   show();
+   toast('Convite criado. Copie o link e envie ao funcionário.');
+  });return;
  }
  if(form.id==='recoverForm'){
   if(!isConfigReady())return showAuthFeedback('A recuperação só poderá enviar e-mails após a configuração do banco de homologação.','error');
@@ -546,7 +607,13 @@ async function bootstrap(){
      authMode='new-password';show();return;
    }}catch(err){window.history.replaceState(null,'',window.location.pathname+window.location.search);authMode='login';show();showAuthFeedback(err.message,'error');return;}
   }
-  if(api.session)await load();else show();
+  if(api.session){
+   if(invitationToken){
+    try{await api.claimStaffInvite(invitationToken);}
+    catch(err){await api.signOut();login();showAuthFeedback(err.message||'Convite inválido.','error');return;}
+   }
+   await load();
+  }else show();
  }
  catch(err){if(api){await api.signOut();user=null;}login();toast(err.message,'error');}
 }
