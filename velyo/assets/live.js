@@ -16,6 +16,13 @@ view=PORTAL==='balcao'?'counter':'dashboard';
 const pending=new Map();
 let toastTimer = null;
 let editingRewardId='',selectedCustomerId='',rewardPhotoPreviewURL='';
+let teamMembers=[],staffInviteLink='';
+const invitationToken=PORTAL==='balcao' ? (new URL(window.location.href)).searchParams.get('convite') : null;
+if(invitationToken){
+ const cleaned=new URL(window.location.href);
+ cleaned.searchParams.delete('convite');
+ window.history.replaceState(null,'',cleaned.pathname+cleaned.search+cleaned.hash);
+}
 let authMode='login', authEmail='';
 const NAV_GROUPS=PORTAL==='balcao'
  ?[{title:'ATENDIMENTO',items:[['counter','⇄','Operação do balcão']]}]
@@ -236,16 +243,19 @@ function redemptions(){
 }
 
 function salesAccess(){
- const roster=bundle.loyalty_memberships.filter(m=>m.is_active);
- const staff=roster.filter(m=>m.role==='staff').length;
- const managers=roster.filter(m=>m.role==='admin'||m.role==='owner').length;
- const rows=roster.map(m=>`<tr><td>${m.user_id===user.id?'Conta atual':`Usuário ${e(m.user_id.slice(0,8))}…`}</td><td>${m.role==='owner'?'Proprietário':m.role==='admin'?'Administrador':m.role==='staff'?'Atendente':e(m.role)}</td><td><span class="live-tag">Ativo</span></td></tr>`).join('');
- return `${title('Acesso Vendas','Área de acesso da equipe que opera o Balcão Velyo.')}
- <div class="live-stats">${stat('Acessos ativos',fmt(roster.length),'Vinculados a esta empresa','purple')}${stat('Gestores',fmt(managers),'Proprietários e administradores','teal')}${stat('Atendentes',fmt(staff),'Contas de balcão ativas','orange')}${stat('Empresa',e(activeTenant()?.name||'—'),'Ambiente selecionado','rose')}</div>
- ${panel('Equipe autorizada','Os vínculos registrados no Supabase estão isolados por empresa',table(['Usuário','Permissão','Situação'],rows))}
- ${panel('Operação de atendimento','Acesse o portal exclusivo para pontuação e resgates',`<div class="content"><p>Os atendentes usam o portal Balcão com suas próprias contas. Um administrador não deve compartilhar sua senha com funcionários.</p><a class="live-btn" target="_blank" rel="noopener noreferrer" href="../balcao/">Abrir Balcão Velyo</a><p class="live-note">O cadastro e o convite de novos funcionários ainda não estão disponíveis nesta tela. A inclusão exige uma conta autenticada e a concessão segura de acesso à empresa.</p></div>`)}`;
+ const roster=teamMembers;
+ const staff=roster.filter(m=>m.role==='staff'&&m.is_active).length;
+ const managers=roster.filter(m=>(m.role==='admin'||m.role==='owner')&&m.is_active).length;
+ const rows=roster.map(m=>`<tr><td><b>${e(m.email||'E-mail não informado')}</b></td><td>${m.role==='owner'?'Proprietário':m.role==='admin'?'Administrador':m.role==='staff'?'Atendente':e(m.role)}</td><td><span class="live-tag ${m.is_active?'':'gray'}">${m.is_active?'Ativo':'Desativado'}</span></td><td>${m.role==='staff'&&isManager()?`<button type="button" class="live-btn ${m.is_active?'ghost':'secondary'} live-small-btn" data-staff-toggle="${e(m.user_id)}" data-staff-active="${m.is_active?'true':'false'}">${m.is_active?'Desativar':'Reativar'}</button>`:'—'}</td></tr>`).join('');
+ const inviteForm=isManager()?panel('Convidar funcionário','Informe o e-mail pessoal do atendente. O link será válido por 48 horas.',`<form class="live-form live-config-form" id="inviteStaffForm"><label class="live-field">E-mail do funcionário <input type="email" name="email" autocomplete="off" required placeholder="funcionario@exemplo.com" maxlength="254"></label><div class="live-form-actions"><button type="submit" class="live-btn">Gerar convite</button></div></form>
+ ${staffInviteLink?`<div class="live-invite-result"><b>Convite criado — copie e envie ao funcionário</b><div class="live-invite-tools"><input id="staffInviteURL" readonly value="${e(staffInviteLink)}" aria-label="Link do convite"><button type="button" class="live-btn secondary" id="copyStaffInvite">Copiar link</button></div><p>Compartilhe somente com o e-mail escolhido. O convite exige conta verificada e só funciona uma vez.</p></div>`:''}
+ <p class="live-note" style="padding:0 20px 18px">O Velyo não envia o convite automaticamente. Copie o link e encaminhe ao funcionário por um canal de sua confiança.</p>`):'';
+ return `${title('Acesso Vendas','Crie acessos individuais para a equipe e controle quem pode operar o Balcão.')}
+ <div class="live-stats">${stat('Acessos ativos',fmt(roster.filter(m=>m.is_active).length),'Nesta empresa','purple')}${stat('Gestores',fmt(managers),'Proprietários e administradores','teal')}${stat('Atendentes',fmt(staff),'Contas de balcão ativas','orange')}${stat('Acesso protegido','Por e-mail','Sem compartilhar senha','rose')}</div>
+ ${inviteForm}
+ ${panel('Usuários e permissões','Você pode desativar e reativar os atendentes desta empresa.',table(['E-mail','Perfil','Situação','Ações'],rows))}
+ ${panel('Portal de atendimento','Funcionários usam sua própria conta para pontuar compras e resgatar brindes',`<div class="content"><p>O funcionário recebe um convite, cria uma senha individual e confirma seu e-mail. Após entrar pelo link, o Velyo libera o Balcão somente para a empresa vinculada.</p><a class="live-btn" target="_blank" rel="noopener noreferrer" href="../balcao/">Abrir Balcão</a></div>`)}`;
 }
-
 function whatsappBusiness(){
  return `${title('WhatsApp Business','Canal de comunicação com os clientes — configuração futura.')}
  ${panel('Integração não ativada','Nenhuma mensagem é enviada automaticamente pelo Velyo',`<div class="content"><div class="live-status-line"><span class="live-status-dot"></span><b>Não configurado</b></div><p>Esta seção acompanha a organização do painel Vale+, mas não está conectada ao WhatsApp Business. Não há QR Code, sessão vinculada ou disparos automáticos configurados.</p><p>Antes de ativar mensagens de cadastro, aniversário e pontos, será necessário definir um canal seguro de envio, consentimento dos clientes e regras de privacidade.</p></div>`)}
@@ -302,13 +312,19 @@ async function load(){
  tenants=allTenants.filter(t=>validIds.has(t.id)&&t.is_active);
  if(!tenants.some(t=>t.id===tenantId))tenantId=tenants[0]?.id||'';
  membership=memberships.find(m=>m.tenant_id===tenantId)||null;
- if(tenants.length){bundle=PORTAL==='balcao'?await api.bundleForCounter(tenantId):await api.bundle(tenantId)}
- else bundle=null;
+ if(tenants.length){
+  bundle=PORTAL==='balcao'?await api.bundleForCounter(tenantId):await api.bundle(tenantId);
+  teamMembers=PORTAL==='admin' && isManager()?await api.listTeam(tenantId):[];
+ }else{bundle=null;teamMembers=[];}
  show();
 }
 async function run(task){if(busy)return;busy=true;try{await task();}catch(err){toast(err.message||'Falha na operação.','error')}finally{busy=false;}}
 function requestFor(kind,fields){const stamp=JSON.stringify(fields);let item=pending.get(kind);if(!item||item.stamp!==stamp){item={id:uuid(),stamp};pending.set(kind,item)}return item.id;}
-async function reload(){bundle=PORTAL==='balcao'?await api.bundleForCounter(tenantId):await api.bundle(tenantId);show();}
+async function reload(){
+ bundle=PORTAL==='balcao'?await api.bundleForCounter(tenantId):await api.bundle(tenantId);
+ if(PORTAL==='admin'&&isManager())teamMembers=await api.listTeam(tenantId);
+ show();
+}
 async function onAdminClick(ev){
  const edit=ev.target.closest('[data-edit-reward]');
  if(edit&&PORTAL==='admin'){
