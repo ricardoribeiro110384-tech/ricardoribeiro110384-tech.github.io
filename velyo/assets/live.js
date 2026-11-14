@@ -33,7 +33,6 @@ function activeTenant(){return tenants.find(t=>t.id===tenantId)}
 function memberRole(){return membership?.role||''}
 function isManager(){return ['owner','admin'].includes(memberRole())}
 function custName(id){return bundle.loyalty_customers.find(x=>x.id===id)?.name||'Cliente'}
-function customerOptions(){return bundle.loyalty_customers.map(c=>`<option value="${e(c.id)}">${e(c.name)} · ${e(c.phone_e164)}</option>`).join('')}
 function rewardOptions(){return bundle.loyalty_rewards.filter(r=>r.is_active && (r.stock===null||r.stock>0)).map(r=>`<option value="${e(r.id)}">${e(r.title)} · ${fmt(r.points_required)} pts</option>`).join('')}
 function zeroOrLimited(){const n=bundle.loyalty_point_transactions.length;return n>=1000?`<div class="live-alert">Este painel exibe até 1.000 transações recentes. Os relatórios ficam parciais quando esse limite é atingido; paginação será necessária antes de usar com alto volume.</div>`:'';}
 function dashboard(){
@@ -70,14 +69,15 @@ function customers(){
  ${panel('Base de clientes','Saldo consultado na tabela; operações usam saldo atualizado via função do banco',table(['Nome','Telefone','Saldo registrado*','Mensagens','Cadastro'],rows))}<p class="live-note">*Saldo registrado: pontos vencidos são descontados quando ocorre a consulta de saldo ou movimentação no banco.</p>`;
 }
 function counter(){
- const customers = customerOptions(),rewards=rewardOptions();
- return `${title('Atendimento no balcão','Pontuar compras e confirmar resgates de forma simples.')}
- <div class="live-banner"><div><b>Operações reais apenas após configuração.</b><p>Uma mesma solicitação de crédito ou resgate utiliza um identificador único. Em caso de falha de rede, repetir a operação com os mesmos dados não duplica pontos.</p></div></div>
+ const rewards=rewardOptions();
+ const phoneField=(id)=>`<label class="live-field">Telefone do cliente (com DDD) <input type="tel" inputmode="tel" autocomplete="off" name="phone" id="${id}" required maxlength="24" placeholder="Ex.: (89) 99999-9999"></label>`;
+ return `${title('Atendimento no balcão','Localize o cliente pelo número do telefone para pontuar e resgatar brindes.')}
+ <div class="live-banner"><div><b>Atendimento rápido por telefone.</b><p>Não é preciso selecionar o cliente em uma lista. Informe o número com DDD e confirme o nome antes de concluir. As operações continuam protegidas contra duplicação.</p></div></div>
  <div class="live-forms">
- ${panel('Creditar compra','Somente compras elegíveis podem pontuar',`<form id="creditForm" class="live-form"><label class="live-field">Cliente <select required name="customer"><option value="">Selecione</option>${customers}</select></label><label class="live-field">Valor da compra (R$) <input name="amount" required placeholder="Ex.: 75,90" inputmode="decimal"></label><button class="live-btn" type="submit">Creditar pontos</button><p class="live-note">Pontos e validade são definidos no banco. Setor farmacêutico bloqueado até validação de elegibilidade.</p></form>`)}
- ${panel('Resgatar recompensa','Saldo e estoque conferidos pelo banco',`<form id="redeemForm" class="live-form"><label class="live-field">Cliente <select required name="customer" id="redeemCustomer"><option value="">Selecione</option>${customers}</select></label><label class="live-field">Recompensa <select required name="reward"><option value="">Selecione</option>${rewards}</select></label><button class="live-btn secondary" type="button" id="checkBalance">Conferir saldo</button><div id="balanceResult" class="live-note" role="status"></div><button class="live-btn teal" type="submit">Confirmar resgate</button></form>`)}
+ ${panel('Pontuar compra','Informe o telefone e o valor da compra.',`<form id="creditForm" class="live-form">${phoneField('creditPhone')}<label class="live-field">Valor da compra (R$) <input name="amount" required placeholder="Ex.: 75,90" inputmode="decimal"></label><button class="live-btn" type="submit">Pontuar compra</button><p class="live-note">O nome do cliente aparece para confirmação. Pontos e validade são definidos no banco; setor farmacêutico sujeito à validação de elegibilidade.</p></form>`)}
+ ${panel('Resgatar brinde','Informe o telefone e escolha o brinde.',`<form id="redeemForm" class="live-form">${phoneField('redeemPhone')}<label class="live-field">Brinde <select required name="reward"><option value="">Selecione o brinde</option>${rewards}</select></label><button class="live-btn secondary" type="button" id="checkBalance">Consultar saldo pelo telefone</button><div id="balanceResult" class="live-note" role="status"></div><button class="live-btn teal" type="submit">Confirmar resgate</button></form>`)}
  </div>
- ${panel('Cadastro rápido de cliente','Cadastre pelo nome e telefone para atender no balcão.',`<form id="createCustomer" class="live-form" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));align-items:end"><label class="live-field">Nome <input name="name" required minlength="2" maxlength="120"></label><label class="live-field">Telefone com DDI <input name="phone" required placeholder="+5586999999999" pattern="\\+[1-9][0-9]{7,14}"></label><button class="live-btn" type="submit">Cadastrar</button></form>`)}
+ ${panel('Cadastro rápido de cliente','Se o telefone ainda não estiver cadastrado, registre o cliente antes da operação.',`<form id="createCustomer" class="live-form" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));align-items:end"><label class="live-field">Nome <input name="name" required minlength="2" maxlength="120"></label><label class="live-field">Telefone com DDD <input type="tel" inputmode="tel" name="phone" required maxlength="24" placeholder="Ex.: (89) 99999-9999"></label><button class="live-btn" type="submit">Cadastrar cliente</button></form>`)}
  `;
 }
 function rewards(){
@@ -154,7 +154,17 @@ document.addEventListener('click',async ev=>{
  if(ev.target.closest('#forgotPassword')){setAuthMode('recover');return;}
  if(ev.target.closest('#backToLogin')){setAuthMode('login');return;}
  if(ev.target.closest('#logout')){await run(async()=>{await api.signOut();user=null;tenants=[];tenantId='';bundle=null;membership=null;memberships=[];show();});return;}
- if(ev.target.closest('#checkBalance')){const customer=$('#redeemCustomer')?.value;if(!customer)return toast('Selecione um cliente.','error');await run(async()=>{const b=await api.balance(tenantId,customer);const n=$('#balanceResult');if(n)n.textContent=`Saldo disponível: ${fmt(b)} pontos.`;});return;}
+ if(ev.target.closest('#checkBalance')){
+  const phone=$('#redeemPhone')?.value;
+  if(!phone)return toast('Informe o telefone do cliente.','error');
+  await run(async()=>{
+   const customer=await api.lookupCustomerByPhone(tenantId,phone);
+   const points=await api.balance(tenantId,customer.id);
+   const output=$('#balanceResult');
+   if(output)output.textContent=`${customer.name} · Saldo disponível: ${fmt(points)} pontos.`;
+  });
+  return;
+ }
 });
 document.addEventListener('change',async ev=>{
  if(ev.target.id==='tenantSelector'){tenantId=ev.target.value;view=PORTAL==='balcao'?'counter':'dashboard';bundle=null;show();await run(async()=>{await load()});return;}
@@ -163,6 +173,7 @@ document.addEventListener('change',async ev=>{
 });
 document.addEventListener('input',ev=>{
  if(ev.target.id==='search'){const focus=ev.target.selectionStart;filter=ev.target.value;show();const search=$('#search');if(search){search.focus();search.setSelectionRange(focus,focus);}return;}
+ if(ev.target.id==='redeemPhone'){const output=$('#balanceResult');if(output)output.textContent='';return;}
 });
 document.addEventListener('submit',async ev=>{
  const form=ev.target;const fd=new FormData(form);ev.preventDefault();
@@ -191,8 +202,40 @@ document.addEventListener('submit',async ev=>{
  
  if(form.id==='createCustomer'){await run(async()=>{await api.createCustomer(tenantId,fd.get('name'),fd.get('phone'));await reload();toast('Cliente cadastrado.');});return;}
  if(form.id==='createReward'){if(PORTAL!=='admin'||!isManager())return toast('Sem permissão para configurar recompensas.','error');await run(async()=>{const points=Number(fd.get('points')),st=fd.get('stock');const stock=st===''?null:Number(st);const cost=fd.get('cost').trim()?parseReais(fd.get('cost')):null;await api.createReward(tenantId,fd.get('title'),points,stock,cost);await reload();toast('Recompensa cadastrada.');});return;}
- if(form.id==='creditForm'){if(PORTAL!=='balcao')return toast('Use o painel do balcão.','error');await run(async()=>{const fields={tenantId,customer:fd.get('customer'),amount:parseReais(fd.get('amount'))};const rid=requestFor('credit',fields);const response=await api.credit(tenantId,fields.customer,fields.amount,rid);pending.delete('credit');await reload();toast(response.replayed?'Solicitação já processada — sem duplicar pontos.':`${fmt(response.credited_points)} pontos creditados.`);});return;}
- if(form.id==='redeemForm'){if(PORTAL!=='balcao')return toast('Use o painel do balcão.','error');await run(async()=>{const fields={tenantId,customer:fd.get('customer'),reward:fd.get('reward')};const rid=requestFor('redeem',fields);const response=await api.redeem(tenantId,fields.customer,fields.reward,rid);pending.delete('redeem');await reload();toast(response.replayed?'Resgate já registrado — não duplicado.':'Recompensa resgatada com sucesso.');});return;}
+ if(form.id==='creditForm'){
+  if(PORTAL!=='balcao')return toast('Use o painel do balcão.','error');
+  await run(async()=>{
+   const customer=await api.lookupCustomerByPhone(tenantId,fd.get('phone'));
+   const amount=parseReais(fd.get('amount'));
+   if(!Number.isSafeInteger(amount)||amount<=0)throw Error('Informe o valor válido da compra.');
+   if(!window.confirm(`Confirmar compra de ${curr(amount)} para ${customer.name} (${customer.phone_e164})?`))return;
+   const fields={tenantId,customer:customer.id,amount};
+   const rid=requestFor('credit',fields);
+   const response=await api.credit(tenantId,customer.id,amount,rid);
+   pending.delete('credit');
+   await reload();
+   toast(response.replayed?'Solicitação já processada — sem duplicar pontos.':`${fmt(response.credited_points)} pontos creditados para ${customer.name}.`);
+  });
+  return;
+ }
+ if(form.id==='redeemForm'){
+  if(PORTAL!=='balcao')return toast('Use o painel do balcão.','error');
+  await run(async()=>{
+   const customer=await api.lookupCustomerByPhone(tenantId,fd.get('phone'));
+   const reward=bundle.loyalty_rewards.find(r=>r.id===fd.get('reward')&&r.is_active&&(r.stock===null||r.stock>0));
+   if(!reward)throw Error('Brinde indisponível. Atualize a página.');
+   const points=await api.balance(tenantId,customer.id);
+   if(Number(points)<Number(reward.points_required))throw Error(`Saldo insuficiente: ${customer.name} tem ${fmt(points)} pontos e o brinde exige ${fmt(reward.points_required)}.`);
+   if(!window.confirm(`Confirmar resgate de "${reward.title}" (${fmt(reward.points_required)} pontos) para ${customer.name} (${customer.phone_e164})? Saldo: ${fmt(points)} pontos.`))return;
+   const fields={tenantId,customer:customer.id,reward:reward.id};
+   const rid=requestFor('redeem',fields);
+   const response=await api.redeem(tenantId,customer.id,reward.id,rid);
+   pending.delete('redeem');
+   await reload();
+   toast(response.replayed?'Resgate já registrado — não duplicado.':`Brinde resgatado para ${customer.name}.`);
+  });
+  return;
+ }
 });
 async function bootstrap(){
  if(!isConfigReady()){show();return;}
