@@ -24,7 +24,7 @@ export class VelyoBackend {
     if(!validConfig(config)) throw Error('Configure apenas o projeto Supabase independente do Velyo.');
     this.base = new URL(config.supabaseUrl).origin;
     this.key = config.publishableKey;
-    this.fetch = fetchImpl;
+    this.fetch = (...args) => fetchImpl(...args);
     this.storage = storage;
     if(!/^(geral|admin|balcao|cliente|plataforma)$/.test(scope)) throw Error('Escopo de login inválido');
     this.sessionKey = SESSION_PREFIX + scope;
