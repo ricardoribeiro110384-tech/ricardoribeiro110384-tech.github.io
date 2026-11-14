@@ -180,6 +180,36 @@ export class VelyoBackend {
   async createReward(tenantId,title,points,stock,unitCostCents){
     return this.rpc('loyalty_create_reward',{p_tenant:tenantId,p_title:title.trim(),p_points:points,p_stock:stock,p_unit_cost_cents:unitCostCents});
   }
+  async updateProgram(tenantId,pointsPerBrl,expiryDays,isActive){
+    if(!RFC_UUID.test(tenantId))throw Error('Empresa inválida.');
+    const rate=Number(pointsPerBrl),days=Number(expiryDays);
+    if(!Number.isFinite(rate)||rate<0.01||rate>1000||!Number.isInteger(Math.round(rate*100))||Math.round(rate*100)!==rate*100)
+      throw Error('Informe entre 0,01 e 1.000 pontos por real, com até duas casas decimais.');
+    if(!Number.isInteger(days)||days<1||days>3650)throw Error('Validade deve ficar entre 1 e 3.650 dias.');
+    if(typeof isActive!=='boolean')throw Error('Status do programa inválido.');
+    const params=new URLSearchParams({tenant_id:'eq.'+tenantId,select:'tenant_id,points_per_brl,expiry_days,is_active'});
+    const rows=await this.http('/rest/v1/loyalty_programs?'+params,{
+      method:'PATCH',body:{points_per_brl:rate,expiry_days:days,is_active:isActive},
+      headers:{Prefer:'return=representation'}
+    });
+    if(!Array.isArray(rows)||rows.length!==1)throw Error('A configuração não foi alterada. Confira sua permissão de gestor.');
+    return rows[0];
+  }
+  async updateReward(tenantId,rewardId,{title,points,stock,isActive}){
+    if(!RFC_UUID.test(tenantId)||!RFC_UUID.test(rewardId))throw Error('Identificador de recompensa inválido.');
+    const safeTitle=String(title??'').trim(),pointValue=Number(points);
+    if(safeTitle.length<2||safeTitle.length>120)throw Error('Nome do brinde precisa ter entre 2 e 120 caracteres.');
+    if(!Number.isSafeInteger(pointValue)||pointValue<1)throw Error('Informe pontos válidos para o brinde.');
+    if(stock!==null&&(!Number.isSafeInteger(stock)||stock<0))throw Error('Estoque inválido.');
+    if(typeof isActive!=='boolean')throw Error('Status do brinde inválido.');
+    const params=new URLSearchParams({tenant_id:'eq.'+tenantId,id:'eq.'+rewardId,select:'id,tenant_id,title,points_required,stock,is_active'});
+    const rows=await this.http('/rest/v1/loyalty_rewards?'+params,{
+      method:'PATCH',body:{title:safeTitle,points_required:pointValue,stock,is_active:isActive},
+      headers:{Prefer:'return=representation'}
+    });
+    if(!Array.isArray(rows)||rows.length!==1)throw Error('O brinde não foi alterado. Confira sua permissão de gestor.');
+    return rows[0];
+  }
   async claimCustomerBySlug(slug){return this.rpc('loyalty_claim_customer_by_slug',{p_slug:slug});}
   async credit(tenantId,customerId,amountCents,requestId){
     return this.rpc('loyalty_credit_purchase',{p_tenant:tenantId,p_customer:customerId,p_amount_cents:amountCents,p_request_id:requestId});
