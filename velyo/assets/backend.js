@@ -91,6 +91,51 @@ export class VelyoBackend {
       method:'POST',authenticated:false,body:{email:mail,password}
     });
   }
+  async counterSetPin(tenantId,pin){
+    if(!RFC_UUID.test(tenantId)||!/^\\d{6}$/.test(String(pin)))throw Error('Informe uma senha numérica de 6 dígitos.');
+    return this.rpc('loyalty_counter_set_pin',{p_tenant:tenantId,p_pin:String(pin)});
+  }
+  async counterStatus(tenantId){
+    if(!RFC_UUID.test(tenantId))throw Error('Empresa inválida.');
+    return this.rpc('loyalty_counter_status',{p_tenant:tenantId});
+  }
+  async counterRpc(name,args){
+    if(!['loyalty_counter_login','loyalty_counter_logout','loyalty_counter_rewards',
+      'loyalty_counter_customer','loyalty_counter_create_customer','loyalty_counter_credit',
+      'loyalty_counter_redeem'].includes(name))throw Error('Operação de Balcão não permitida.');
+    return this.http('/rest/v1/rpc/'+name,{method:'POST',authenticated:false,body:args});
+  }
+  async counterLogin(slug,pin){
+    const code=String(slug||'').trim().toLowerCase();
+    if(!/^[a-z0-9-]{3,80}$/.test(code))throw Error('Identificador da empresa inválido.');
+    if(!/^\\d{6}$/.test(String(pin)))throw Error('Informe os 6 dígitos da senha.');
+    const result=await this.counterRpc('loyalty_counter_login',{p_slug:code,p_pin:String(pin)});
+    if(!result?.ok)throw Error(result?.message||'Empresa ou senha inválida.');
+    return result;
+  }
+  async counterLogout(token){return this.counterRpc('loyalty_counter_logout',{p_token:token});}
+  async counterRewards(token){return this.counterRpc('loyalty_counter_rewards',{p_token:token});}
+  async counterFindCustomer(token,phone){
+    return this.counterRpc('loyalty_counter_customer',{p_token:token,p_phone:normalizePhoneE164(phone)});
+  }
+  async counterCreateCustomer(token,name,phone){
+    return this.counterRpc('loyalty_counter_create_customer',{
+      p_token:token,p_name:String(name||'').trim(),p_phone:normalizePhoneE164(phone)
+    });
+  }
+  async counterCredit(token,phone,amountCents,requestId){
+    if(!Number.isSafeInteger(amountCents)||amountCents<1)throw Error('Valor inválido.');
+    if(!RFC_UUID.test(requestId))throw Error('Identificador de operação inválido.');
+    return this.counterRpc('loyalty_counter_credit',{
+      p_token:token,p_phone:normalizePhoneE164(phone),p_amount_cents:amountCents,p_request_id:requestId
+    });
+  }
+  async counterRedeem(token,phone,rewardId,requestId){
+    if(!RFC_UUID.test(rewardId)||!RFC_UUID.test(requestId))throw Error('Resgate inválido.');
+    return this.counterRpc('loyalty_counter_redeem',{
+      p_token:token,p_phone:normalizePhoneE164(phone),p_reward:rewardId,p_request_id:requestId
+    });
+  }
   async createStaffInvite(tenantId,email){
     return this.rpc('loyalty_create_staff_invite',{p_tenant:tenantId,p_email:String(email).trim()});
   }
@@ -160,7 +205,7 @@ export class VelyoBackend {
     return this.http(`/rest/v1/${table}?select=*`,{method:'POST',body:data,headers:{Prefer:'return=representation'}});
   }
   async rpc(fn,args){
-    if(!['loyalty_credit_purchase','loyalty_redeem_reward','loyalty_current_balance','loyalty_create_reward','loyalty_claim_customer','loyalty_claim_customer_by_slug','loyalty_create_staff_invite','loyalty_claim_staff_invite','loyalty_list_team','loyalty_set_staff_active'].includes(fn))throw Error('Operação RPC não autorizada');
+    if(!['loyalty_credit_purchase','loyalty_redeem_reward','loyalty_current_balance','loyalty_create_reward','loyalty_claim_customer','loyalty_claim_customer_by_slug','loyalty_create_staff_invite','loyalty_claim_staff_invite','loyalty_list_team','loyalty_set_staff_active','loyalty_counter_set_pin','loyalty_counter_status'].includes(fn))throw Error('Operação RPC não autorizada');
     return this.http(`/rest/v1/rpc/${fn}`,{method:'POST',body:args});
   }
   async listTenants(){
