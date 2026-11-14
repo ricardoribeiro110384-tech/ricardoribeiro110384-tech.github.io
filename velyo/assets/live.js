@@ -101,6 +101,8 @@ function reports(){
    ${panel('Custo dos benefícios','Custos informados no momento do resgate, sem estimativa de lucro',table(['Recompensa','Resgates','Custo conhecido','Sem custo'],costRows))}`;
 }
 function customers(){
+ const companySlug=activeTenant()?.slug||'';
+ const customerPortalLink=companySlug?new URL('../cliente/?loja='+encodeURIComponent(companySlug),window.location.href).href:'';
  const list=bundle.loyalty_customers.filter(c=>`${c.name} ${c.phone_e164}`.toLowerCase().includes(filter.toLowerCase()));
  const rows=list.map(c=>{
   const ac=bundle.loyalty_accounts.find(a=>a.customer_id===c.id),tx=bundle.loyalty_point_transactions.filter(t=>t.customer_id===c.id&&t.kind==='credit');
@@ -113,6 +115,7 @@ function customers(){
   details=panel(`Extrato de ${e(selected.name)}`,`Telefone: ${e(selected.phone_e164)} · até 50 movimentações recentes`,`<div class="content"><div class="live-row"><button type="button" class="live-btn" data-balance-customer="${e(selected.id)}">Consultar saldo atualizado</button><button type="button" class="live-btn ghost" id="closeCustomer">Fechar extrato</button></div><p id="customerBalanceResult" class="live-note" role="status">Clique em consultar para descontar eventuais pontos vencidos e verificar o saldo atual.</p></div>${table(['Data','Operação','Valor da compra','Pontos'],rows)}`);
  }
  return `${title('Clientes e pontos',`${fmt(bundle.loyalty_customers.length)} cliente(s) cadastrado(s) nesta empresa`)}
+ ${customerPortalLink?panel('Link de primeiro acesso do cliente','Envie este endereço ao cliente para conferir seus pontos e criar uma senha depois da verificação do celular.',`<div class="content"><div class="live-invite-tools"><input id="clientPortalLink" readonly value="${e(customerPortalLink)}" aria-label="Link da página do cliente"><button type="button" id="copyClientPortalLink" class="live-btn secondary">Copiar link</button></div><p class="live-note">A verificação por SMS depende de um provedor ativo no Supabase. O cliente precisa estar previamente cadastrado nesta loja.</p></div>`):''}
  <div class="live-grid">
  ${panel('Pesquisar clientes','Localize pelo nome ou telefone',`<div class="content"><label class="live-field">Buscar <input id="search" value="${e(filter)}" placeholder="Nome ou telefone"></label><p class="live-note">Clique em “Ver extrato” para acompanhar o saldo e as movimentações.</p></div>`)}
  ${panel('Cadastrar cliente','O cadastro pertence exclusivamente a esta empresa',`<form id="createCustomer" class="live-form"><label class="live-field">Nome completo <input name="name" required minlength="2" maxlength="120"></label><label class="live-field">Telefone com DDD <input type="tel" name="phone" required inputmode="tel" maxlength="24" placeholder="(89) 99999-9999"></label><button type="submit" class="live-btn">Cadastrar cliente</button></form>`)}
@@ -415,6 +418,14 @@ async function onAdminClick(ev){
    show();
    toast(active?'Acesso do funcionário desativado.':'Acesso do funcionário reativado.');
   });return true;
+ }
+ if(ev.target.closest('#copyClientPortalLink')){
+  const input=$('#clientPortalLink');
+  if(input){
+   try{await navigator.clipboard.writeText(input.value);toast('Link do cliente copiado.');}
+   catch{input.select();toast('Selecione e copie o link do cliente.','error');}
+  }
+  return true;
  }
  if(ev.target.closest('#copyCounterURL')){
   const input=$('#counterURL');
