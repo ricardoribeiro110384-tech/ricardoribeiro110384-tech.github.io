@@ -23,7 +23,7 @@ let counterSession=null;
 if(PORTAL==='balcao'){
  try{
   const saved=JSON.parse(window.sessionStorage.getItem(COUNTER_SESSION_KEY)||'null');
-  if(saved?.token&&/^[a-f0-9]{64}$/.test(saved.token)&&Date.parse(saved.expires_at)>Date.now())counterSession=saved;
+  if(saved?.token&&/^[a-f0-9]{64}$/.test(saved.token)&&Date.parse(saved.expires_at)>Date.now()&&(!counterLinkSlug||counterLinkSlug===saved.tenant_slug))counterSession=saved;
  }catch{}
 }
 const invitationToken=PORTAL==='balcao' ? (new URL(window.location.href)).searchParams.get('convite') : null;
