@@ -3,7 +3,7 @@
  * Somente chave publishable no cliente. Autorizações são impostas no banco (RLS/RPC).
  * Não possui URL nem chave da Drogaria Rocha.
  */
-const SESSION_KEY = 'velyo_v09_auth_session';
+const SESSION_PREFIX = 'velyo_v10_session_';
 const TABLES = new Set(['loyalty_tenants','loyalty_memberships','loyalty_programs','loyalty_customers',
   'loyalty_accounts','loyalty_rewards','loyalty_reward_costs','loyalty_point_transactions','loyalty_point_lots','loyalty_redemptions','loyalty_platform_admins','loyalty_subscriptions']);
 const RFC_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -20,19 +20,21 @@ function validConfig(config){
     /^sb_publishable_[A-Za-z0-9_-]+$/.test(config.publishableKey);
 }
 export class VelyoBackend {
-  constructor(config, {fetchImpl=globalThis.fetch, storage=globalThis.sessionStorage}={}){
+  constructor(config, {fetchImpl=globalThis.fetch, storage=globalThis.sessionStorage, scope='geral'}={}){
     if(!validConfig(config)) throw Error('Configure apenas o projeto Supabase independente do Velyo.');
     this.base = new URL(config.supabaseUrl).origin;
     this.key = config.publishableKey;
     this.fetch = fetchImpl;
     this.storage = storage;
+    if(!/^(geral|admin|balcao|cliente|plataforma)$/.test(scope)) throw Error('Escopo de login inválido');
+    this.sessionKey = SESSION_PREFIX + scope;
     this.session = null;
-    try {const value=JSON.parse(storage?.getItem(SESSION_KEY)||'null');if(value?.access_token && value?.refresh_token)this.session=value;} catch {}
+    try {const value=JSON.parse(storage?.getItem(this.sessionKey)||'null');if(value?.access_token && value?.refresh_token)this.session=value;} catch {}
   }
   saveSession(data){
     this.session = data ? {access_token:data.access_token,refresh_token:data.refresh_token,expires_at:data.expires_at||0} : null;
-    if(this.session) this.storage?.setItem(SESSION_KEY,JSON.stringify(this.session));
-    else this.storage?.removeItem(SESSION_KEY);
+    if(this.session) this.storage?.setItem(this.sessionKey,JSON.stringify(this.session));
+    else this.storage?.removeItem(this.sessionKey);
   }
   async http(path,{method='GET',body,authenticated=true,headers={},retry=true}={}){
     const h={apikey:this.key,Accept:'application/json',...headers};
