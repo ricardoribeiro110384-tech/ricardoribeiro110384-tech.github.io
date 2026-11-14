@@ -11,13 +11,20 @@ const pct = n => n == null ? '—' : `${n.toLocaleString('pt-BR',{maximumFractio
 const uuid = () => crypto.randomUUID();
 let api=null, user=null, tenants=[], tenantId='',bundle=null, view='dashboard', period=30, busy=false, error='', filter='', consentOnly=false, memberships=[], membership=null;
 const PORTAL=document.body.dataset.portal==='balcao'?'balcao':'admin';
-const allowedViews=PORTAL==='balcao'?new Set(['counter']):new Set(['dashboard','reports','customers','rewards','program','movements']);
+const allowedViews=PORTAL==='balcao'?new Set(['counter']):new Set(['dashboard','customers','purchases','redemptions','rewards','reports','salesAccess','whatsappBusiness','program','movements']);
 view=PORTAL==='balcao'?'counter':'dashboard';
 const pending=new Map();
 let toastTimer = null;
 let editingRewardId='',selectedCustomerId='';
 let authMode='login', authEmail='';
-const NAV=(PORTAL==='balcao'?[['counter','⇄','Operação do balcão']]:[['dashboard','◫','Visão geral'],['customers','♧','Clientes e pontos'],['rewards','✦','Brindes'],['program','⚙','Programa de pontos'],['movements','⇄','Movimentações'],['reports','▥','Relatórios']]);
+const NAV_GROUPS=PORTAL==='balcao'
+ ?[{title:'ATENDIMENTO',items:[['counter','⇄','Operação do balcão']]}]
+ :[
+  {title:'PAINEL',items:[['dashboard','⌂','Visão geral']]},
+  {title:'OPERAÇÃO',items:[['customers','♧','Clientes'],['purchases','↗','Compras e pontos'],['redemptions','⇄','Resgates'],['rewards','✦','Brindes e vouchers']]},
+  {title:'ANÁLISE',items:[['reports','▥','Relatórios']]},
+  {title:'SISTEMA',items:[['salesAccess','♙','Acesso Vendas'],['program','⚙','Configurações'],['whatsappBusiness','◉','WhatsApp Business']]}
+ ];
 function isConfigReady(){return !!window.VELYO_CONFIG?.supabaseUrl && !!window.VELYO_CONFIG?.publishableKey}
 function toast(msg,kind='ok'){
   const node=$('#toast'); if(!node)return;
@@ -102,7 +109,7 @@ function program(){
  const p=bundle.loyalty_programs[0];
  if(!p)return `${title('Programa de pontos','Configurações desta empresa')}${panel('Sem programa','O programa ainda não foi inicializado para esta empresa.','<p class="live-note" style="padding:20px">Verifique a criação da empresa no painel do proprietário.</p>')}`;
  const rate=Number(p.points_per_brl),expiry=Number(p.expiry_days);
- return `${title('Programa de pontos','Defina as regras de acumulação e validade desta empresa.')}
+ return `${title('Configurações','Defina as regras de acumulação e validade do programa de fidelidade.')}
  <div class="live-stats">
  ${stat('Pontos por R$ 1,00',fmt(rate),'Válido para novas compras','purple')}
  ${stat('Validade',`${fmt(expiry)} dias`,'Contados a partir do crédito','teal')}
@@ -165,15 +172,64 @@ function rewards(){
  <label class="live-field">Estoque disponível (vazio = ilimitado) <input type="number" name="stock" min="0" step="1" value="${chosen.stock===null?'':e(chosen.stock)}"></label>
  <label class="live-field">Status <select name="enabled"><option value="true" ${chosen.is_active?'selected':''}>Ativo</option><option value="false" ${!chosen.is_active?'selected':''}>Inativo</option></select></label>
  <div class="live-form-actions"><button type="submit" class="live-btn">Salvar alterações</button><button type="button" class="live-btn ghost" id="cancelEditReward">Cancelar</button></div></form>`):'';
- return `${title('Brindes e recompensas','Cadastre, consulte e edite os brindes que seus clientes poderão resgatar.')}
+ return `${title('Brindes e vouchers','Cadastre e gerencie os brindes disponíveis para resgate.')}
  <div class="live-stats">${stat('Cadastrados',fmt(bundle.loyalty_rewards.length),'Total do catálogo','purple')}${stat('Ativos',fmt(active),'Disponíveis','teal')}${stat('Sem estoque',fmt(depleted),'Reposição necessária','orange')}${stat('Inativos',fmt(bundle.loyalty_rewards.length-active),'Não resgatáveis','rose')}</div>
  ${create}${edit}
+ <p class="live-note">Brindes com valor fixo em pontos estão disponíveis. Vouchers de desconto com regras específicas ainda não foram implementados.</p>
  ${panel('Catálogo de brindes',bundle.loyalty_rewards.length?'Use “Editar” para alterar estoque, pontos ou desativar um brinde.':'Nenhum brinde cadastrado. Use o formulário acima para criar o primeiro.',table(['Brinde','Pontos','Estoque','Custo unitário','Status','Ações'],rows))}`;
 }
+function purchases(){
+ const since=Date.now()-period*86400000;
+ const transactions=bundle.loyalty_point_transactions.filter(t=>t.kind==='credit'&&new Date(t.created_at).getTime()>=since);
+ const totalCents=transactions.reduce((s,t)=>s+Number(t.amount_cents||0),0);
+ const points=transactions.reduce((s,t)=>s+Number(t.delta_points||0),0);
+ const html=transactions.slice(0,150).map(t=>`<tr><td>${dateBR(t.created_at)}</td><td>${e(custName(t.customer_id))}</td><td>${t.amount_cents!=null?curr(t.amount_cents):'—'}</td><td><b>+${fmt(t.delta_points)} pts</b></td></tr>`).join('');
+ return `${title('Compras e pontos','Consulte as compras que geraram pontos nesta empresa.',rangeControl())}
+ ${zeroOrLimited()}
+ <div class="live-stats">${stat('Compras pontuadas',fmt(transactions.length),'Movimentações do período','purple')}${stat('Valor registrado',curr(totalCents),'Não equivale ao faturamento total','teal')}${stat('Pontos creditados',fmt(points),'Pontos concedidos no período','orange')}${stat('Clientes atendidos',fmt(new Set(transactions.map(t=>t.customer_id)).size),'Clientes distintos','rose')}</div>
+ ${panel('Histórico de compras','Compras lançadas pela equipe de balcão; até 150 registros exibidos',table(['Data','Cliente','Valor da compra','Pontos creditados'],html))}
+ <div class="live-action-row"><a class="live-btn" target="_blank" rel="noopener noreferrer" href="../balcao/">Abrir Balcão para pontuar uma compra</a><button class="live-btn secondary" type="button" data-view="movements">Ver todas as movimentações</button></div>
+ <p class="live-note">A pontuação é registrada pelo Balcão com o telefone do cliente. Pontos já emitidos não são alterados ao modificar a regra do programa.</p>`;
+}
+
+function redemptions(){
+ const since=Date.now()-period*86400000;
+ const tx=bundle.loyalty_point_transactions.filter(t=>t.kind==='redemption'&&new Date(t.created_at).getTime()>=since);
+ const costs=new Map(bundle.loyalty_redemptions.map(r=>[r.transaction_id,r.unit_cost_cents]));
+ const names=new Map(bundle.loyalty_rewards.map(r=>[r.id,r.title]));
+ const priced=tx.filter(t=>costs.has(t.id)&&costs.get(t.id)!=null);
+ const cost=priced.reduce((sum,t)=>sum+Number(costs.get(t.id)||0),0);
+ const points=tx.reduce((sum,t)=>sum+Math.abs(Number(t.delta_points||0)),0);
+ const html=tx.slice(0,150).map(t=>`<tr><td>${dateBR(t.created_at)}</td><td>${e(custName(t.customer_id))}</td><td>${e(names.get(t.reward_id)||'Brinde indisponível no catálogo')}</td><td>${fmt(Math.abs(Number(t.delta_points||0)))}</td><td>${costs.has(t.id)&&costs.get(t.id)!=null?curr(costs.get(t.id)):'Não informado'}</td></tr>`).join('');
+ return `${title('Resgates','Acompanhe os brindes efetivamente resgatados pelos clientes.',rangeControl())}
+ ${zeroOrLimited()}
+ <div class="live-stats">${stat('Resgates realizados',fmt(tx.length),'No período selecionado','purple')}${stat('Pontos utilizados',fmt(points),'Débitos de resgate','teal')}${stat('Custo conhecido',curr(cost),priced.length===tx.length?'Custo histórico informado':'Custo parcial','orange')}${stat('Sem custo informado',fmt(tx.length-priced.length),'Não estimados','rose')}</div>
+ ${panel('Histórico de resgates','Movimentações confirmadas pelo banco; até 150 registros exibidos',table(['Data','Cliente','Brinde','Pontos utilizados','Custo informado'],html))}
+ <div class="live-action-row"><a class="live-btn" target="_blank" rel="noopener noreferrer" href="../balcao/">Abrir Balcão para resgatar um brinde</a><button class="live-btn secondary" data-view="rewards" type="button">Gerenciar brindes</button></div>
+ <p class="live-note">O sistema não utiliza códigos para resgate: o atendente identifica o cliente pelo telefone e confirma a operação. Os indicadores só exibem resgates efetivamente registrados.</p>`;
+}
+
+function salesAccess(){
+ const roster=bundle.loyalty_memberships.filter(m=>m.is_active);
+ const staff=roster.filter(m=>m.role==='staff').length;
+ const managers=roster.filter(m=>m.role==='admin'||m.role==='owner').length;
+ const rows=roster.map(m=>`<tr><td>${m.user_id===user.id?'Conta atual':`Usuário ${e(m.user_id.slice(0,8))}…`}</td><td>${m.role==='owner'?'Proprietário':m.role==='admin'?'Administrador':m.role==='staff'?'Atendente':e(m.role)}</td><td><span class="live-tag">Ativo</span></td></tr>`).join('');
+ return `${title('Acesso Vendas','Área de acesso da equipe que opera o Balcão Velyo.')}
+ <div class="live-stats">${stat('Acessos ativos',fmt(roster.length),'Vinculados a esta empresa','purple')}${stat('Gestores',fmt(managers),'Proprietários e administradores','teal')}${stat('Atendentes',fmt(staff),'Contas de balcão ativas','orange')}${stat('Empresa',e(activeTenant()?.name||'—'),'Ambiente selecionado','rose')}</div>
+ ${panel('Equipe autorizada','Os vínculos registrados no Supabase estão isolados por empresa',table(['Usuário','Permissão','Situação'],rows))}
+ ${panel('Operação de atendimento','Acesse o portal exclusivo para pontuação e resgates',`<div class="content"><p>Os atendentes usam o portal Balcão com suas próprias contas. Um administrador não deve compartilhar sua senha com funcionários.</p><a class="live-btn" target="_blank" rel="noopener noreferrer" href="../balcao/">Abrir Balcão Velyo</a><p class="live-note">O cadastro e o convite de novos funcionários ainda não estão disponíveis nesta tela. A inclusão exige uma conta autenticada e a concessão segura de acesso à empresa.</p></div>`)}`;
+}
+
+function whatsappBusiness(){
+ return `${title('WhatsApp Business','Canal de comunicação com os clientes — configuração futura.')}
+ ${panel('Integração não ativada','Nenhuma mensagem é enviada automaticamente pelo Velyo',`<div class="content"><div class="live-status-line"><span class="live-status-dot"></span><b>Não configurado</b></div><p>Esta seção acompanha a organização do painel Vale+, mas não está conectada ao WhatsApp Business. Não há QR Code, sessão vinculada ou disparos automáticos configurados.</p><p>Antes de ativar mensagens de cadastro, aniversário e pontos, será necessário definir um canal seguro de envio, consentimento dos clientes e regras de privacidade.</p></div>`)}
+ ${panel('Próximas integrações','Funcionalidades previstas, ainda indisponíveis',`<div class="content"><p>Confirmação de compras pontuadas, aviso de vencimento de pontos e mensagens de aniversário — sempre considerando a autorização do cliente para comunicação.</p></div>`)}`;
+}
+
 function layout(){
- const nav=NAV.map(([id,ico,label])=>`<button type="button" data-view="${id}" class="${view===id?'active':''}"><span class="symbol">${ico}</span>${label}</button>`).join('');
- const page = ({dashboard, reports, customers, counter, rewards, program, movements})[allowedViews.has(view)?view:(PORTAL==='balcao'?'counter':'dashboard')];
- $('#app').innerHTML=`<div class="live-shell"><div class="live-scrim" id="scrim"></div><aside class="live-sidebar" id="sidebar"><div class="live-logo">velyo<span>.</span><small>${PORTAL==='balcao'?'ATENDIMENTO':'ADMINISTRAÇÃO'}</small></div><nav class="live-nav">${nav}</nav><div class="live-bottom"><strong>Velyo v0.9</strong>${PORTAL==='balcao'?'Área operacional. Relatórios e dados gerenciais não aparecem aqui.':'Painel exclusivo de gestores. Dados separados por estabelecimento.'}</div></aside><div class="live-main"><header class="live-topbar"><div class="live-row"><button class="live-mobile-menu" type="button" id="mobileMenu" aria-label="Abrir menu">☰</button><strong><span class="workspace-label">Workspace / </span>${e(activeTenant()?.name||'Empresa')}</strong></div><div class="right"><select id="tenantSelector" class="live-select" aria-label="Selecionar empresa">${tenants.map(t=>`<option value="${e(t.id)}" ${t.id===tenantId?'selected':''}>${e(t.name)}</option>`).join('')}</select><span class="email">${e(user?.email)}</span><button class="live-btn ghost" id="logout" type="button">Sair</button></div></header><div class="live-body">${page()}</div></div></div>`;
+ const nav=NAV_GROUPS.map(section=>`<section class="live-nav-group" aria-label="${e(section.title)}"><p class="live-nav-title">${e(section.title)}</p>${section.items.map(([id,ico,label])=>`<button type="button" data-view="${id}" aria-current="${view===id?'page':'false'}" class="${view===id?'active':''}"><span class="symbol" aria-hidden="true">${ico}</span><span class="nav-text">${e(label)}</span></button>`).join('')}</section>`).join('');
+ const page = ({dashboard, reports, customers, counter, rewards, program, movements, purchases, redemptions, salesAccess, whatsappBusiness})[allowedViews.has(view)?view:(PORTAL==='balcao'?'counter':'dashboard')];
+ $('#app').innerHTML=`<div class="live-shell"><div class="live-scrim" id="scrim"></div><aside class="live-sidebar" id="sidebar"><div class="live-logo">velyo<span>.</span><small>${PORTAL==='balcao'?'ATENDIMENTO':'ADMINISTRAÇÃO'}</small></div><nav class="live-nav" aria-label="Menu principal">${nav}</nav><div class="live-bottom"><strong>Velyo · Gestão</strong>${PORTAL==='balcao'?'Área operacional. Relatórios e dados gerenciais não aparecem aqui.':'Painel exclusivo de gestores. Dados separados por estabelecimento.'}</div></aside><div class="live-main"><header class="live-topbar"><div class="live-row"><button class="live-mobile-menu" type="button" id="mobileMenu" aria-label="Abrir menu">☰</button><strong><span class="workspace-label">Workspace / </span>${e(activeTenant()?.name||'Empresa')}</strong></div><div class="right"><select id="tenantSelector" class="live-select" aria-label="Selecionar empresa">${tenants.map(t=>`<option value="${e(t.id)}" ${t.id===tenantId?'selected':''}>${e(t.name)}</option>`).join('')}</select><span class="email">${e(user?.email)}</span><button class="live-btn ghost" id="logout" type="button">Sair</button></div></header><div class="live-body">${page()}</div></div></div>`;
 }
 function login(){
  $('#app').innerHTML=renderAuth({configured:isConfigReady(),mode:authMode,email:authEmail,area:PORTAL});
@@ -257,7 +313,7 @@ async function onAdminClick(ev){
 }
 document.addEventListener('click',async ev=>{
  if(await onAdminClick(ev))return;
- const viewButton=ev.target.closest('[data-view]');if(viewButton){if(!allowedViews.has(viewButton.dataset.view))return;view=viewButton.dataset.view;filter='';show();return;}
+ const viewButton=ev.target.closest('[data-view]');if(viewButton){if(!allowedViews.has(viewButton.dataset.view))return;view=viewButton.dataset.view;filter='';show();$('#sidebar')?.classList.remove('open');$('#scrim')?.classList.remove('open');return;}
  if(ev.target.closest('#mobileMenu')){$('#sidebar')?.classList.add('open');$('#scrim')?.classList.add('open');return;}
  if(ev.target.closest('#scrim')){$('#sidebar')?.classList.remove('open');$('#scrim')?.classList.remove('open');return;}
  if(ev.target.closest('#togglePassword')){
