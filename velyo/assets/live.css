@@ -25,3 +25,21 @@ body{min-height:100vh;background:#f5f7fc;color:var(--ink)}
 .live-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.live-select{padding:10px 13px;border:1px solid var(--line);border-radius:10px;background:white;color:#34445d;font-size:12px;max-width:280px}.live-mobile-menu{display:none}.live-scrim{display:none}
 @media(max-width:1150px){.live-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.live-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.workspace-label{display:none}.live-topbar strong{font-size:11px;max-width:108px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.live-topbar .right{gap:7px}.live-topbar .live-select{max-width:143px;font-size:11px}.live-topbar .live-btn{padding:10px 11px}.live-sidebar{transform:translateX(-100%);transition:transform .2s}.live-sidebar.open{transform:translateX(0)}.live-scrim.open{display:block;position:fixed;inset:0;background:#0009;z-index:12}.live-main{margin-left:0}.live-topbar{height:64px;padding:0 17px}.live-mobile-menu{display:block;background:transparent;border:0;font-size:23px;color:#263452}.live-body{padding:24px 16px 45px}.live-heading h1{font-size:24px}.live-stats{gap:10px}.live-stat{padding:15px}.live-stat strong{font-size:23px}.live-login-outer{grid-template-columns:1fr}.live-login-hero{padding:22px 25px}.live-login-hero h1{margin:12px 0 0;font-size:22px}.live-login-hero p{display:none}.live-login-hero .brand{font-size:32px}.live-login-side{padding:10px}.live-forms{grid-template-columns:1fr}.live-topbar .email{display:none}.live-banner{align-items:start;flex-direction:column}.live-panel .content{padding:16px}}
+
+/* Velyo Administração — primeiros passos, configuração e edição */
+.live-start{border:1px solid #dddafd;border-radius:18px;background:linear-gradient(120deg,#f0edff,#fff 64%);padding:22px;margin-bottom:20px;box-shadow:0 5px 18px #1b235309}
+.live-start-head h2{font-size:19px;letter-spacing:-.4px;margin:7px 0;color:#1e2b48}
+.live-start-head p{margin:0 0 16px;color:#6d7791;font-size:12px;line-height:1.7}
+.live-start-tag{font-size:10px;letter-spacing:1.4px;color:#6057d8;font-weight:850}
+.live-start-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.live-start-step{font:inherit;display:flex;flex-direction:column;gap:8px;text-decoration:none;text-align:left;cursor:pointer;background:#fff;border:1px solid #e3e5f5;border-radius:12px;padding:16px;min-height:145px;color:#17243f;transition:box-shadow .16s,border-color .16s}
+.live-start-step:hover,.live-start-step:focus-visible{box-shadow:0 5px 15px #5852d520;border-color:#958ef5}
+.live-start-step b{font-size:12px}
+.live-start-step span{font-size:11px;line-height:1.55;color:#697792;flex:1}
+.live-start-step small{font-size:11px;color:#6055dd;font-weight:850}
+.live-config-form{grid-template-columns:repeat(auto-fit,minmax(185px,1fr));align-items:end}
+.live-config-form>.live-note{grid-column:1/-1;margin:0}
+.live-config-form .live-form-actions{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.live-small-btn{padding:8px 11px;font-size:11px;white-space:nowrap}
+@media(max-width:1100px){.live-start-steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.live-start-steps{grid-template-columns:1fr}.live-start{padding:16px}.live-start-step{min-height:auto}.live-config-form{grid-template-columns:1fr}}
