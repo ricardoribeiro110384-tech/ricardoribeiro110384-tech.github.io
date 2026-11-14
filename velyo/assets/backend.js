@@ -92,7 +92,7 @@ export class VelyoBackend {
     });
   }
   async counterSetPin(tenantId,pin){
-    if(!RFC_UUID.test(tenantId)||!/^\\d{6}$/.test(String(pin)))throw Error('Informe uma senha numérica de 6 dígitos.');
+    if(!RFC_UUID.test(tenantId)||!/^\d{6}$/.test(String(pin)))throw Error('Informe uma senha numérica de 6 dígitos.');
     return this.rpc('loyalty_counter_set_pin',{p_tenant:tenantId,p_pin:String(pin)});
   }
   async counterStatus(tenantId){
@@ -108,7 +108,7 @@ export class VelyoBackend {
   async counterLogin(slug,pin){
     const code=String(slug||'').trim().toLowerCase();
     if(!/^[a-z0-9-]{3,80}$/.test(code))throw Error('Identificador da empresa inválido.');
-    if(!/^\\d{6}$/.test(String(pin)))throw Error('Informe os 6 dígitos da senha.');
+    if(!/^\d{6}$/.test(String(pin)))throw Error('Informe os 6 dígitos da senha.');
     const result=await this.counterRpc('loyalty_counter_login',{p_slug:code,p_pin:String(pin)});
     if(!result?.ok)throw Error(result?.message||'Empresa ou senha inválida.');
     return result;
