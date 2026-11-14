@@ -24,11 +24,16 @@ async function load(){
  const c=profiles.find(p=>p.tenant_id===selected);
  const [wallet,rewards,history,lots]=await Promise.all([
    api.select('loyalty_accounts',selected,{cols:'customer_id,balance_points',filters:{customer_id:c.id},limit:1}),
-   api.select('loyalty_rewards',selected,{cols:'id,title,points_required,stock,is_active',limit:150}),
+   api.select('loyalty_rewards',selected,{cols:'id,title,points_required,stock,is_active,image_path',limit:150}),
    api.select('loyalty_point_transactions',selected,{cols:'id,kind,delta_points,created_at,amount_cents',filters:{customer_id:c.id},order:'created_at.desc',limit:150}),
    api.select('loyalty_point_lots',selected,{cols:'remaining_points,expires_at',filters:{customer_id:c.id},order:'expires_at.asc',limit:150})
  ]);
  data={c,wallet:wallet[0],rewards,history,lots};render();
+}
+function rewardPhoto(reward){
+ const url=api?.rewardImageUrl(reward.image_path);
+ return url?`<div class="customer-reward-photo"><img src="${esc(url)}" alt="Foto de ${esc(reward.title)}" loading="lazy"></div>`:
+ `<div class="customer-reward-photo customer-reward-empty" role="img" aria-label="Sem foto do brinde">🎁</div>`;
 }
 function render(){
  if(!data)return noProfiles();
@@ -41,7 +46,7 @@ function render(){
   const next=data.lots.find(l=>Number(l.remaining_points)>0&&Date.parse(l.expires_at)>Date.now());
   h=`<div class="headline"><div><span class="eyebrow">MINHA CONTA</span><h1>Minhas vantagens</h1><p>Saldo registrado no programa de ${esc(store)}.</p></div></div><div class="client-hero"><p>SALDO REGISTRADO</p><strong>${fmt(data.wallet?.balance_points)} pts</strong><span>${next?'Próximo vencimento: '+br(next.expires_at):'Nenhum ponto com vencimento futuro registrado'}</span></div><div class="card"><div class="card-body"><p><b>Informação:</b> o saldo é atualizado quando as movimentações são registradas pelo estabelecimento.</p><button class="btn alt" id="refresh">Atualizar extrato</button></div></div>`;
  } else if(view==='rewards') {
-  h=`<div class="headline"><div><span class="eyebrow">BENEFÍCIOS</span><h1>Recompensas</h1><p>Resgates são confirmados no balcão.</p></div></div><div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))">${data.rewards.filter(r=>r.is_active).map(r=>`<article class="card"><div class="card-body"><span class="tag purple">RECOMPENSA</span><h3>${esc(r.title)}</h3><p>${fmt(r.points_required)} pontos</p><span class="tag">${Number(data.wallet?.balance_points)>=Number(r.points_required)?'Pontos suficientes':'Acumule mais pontos'}</span></div></article>`).join('')||'<p>Nenhuma recompensa disponível.</p>'}</div>`;
+  h=`<div class="headline"><div><span class="eyebrow">BENEFÍCIOS</span><h1>Recompensas</h1><p>Resgates são confirmados no balcão.</p></div></div><div class="kpis" style="grid-template-columns:repeat(auto-fit,minmax(210px,1fr))">${data.rewards.filter(r=>r.is_active).map(r=>`<article class="card customer-reward-card">${rewardPhoto(r)}<div class="card-body"><span class="tag purple">RECOMPENSA</span><h3>${esc(r.title)}</h3><p><b>${fmt(r.points_required)} pontos</b></p><span class="tag">${Number(data.wallet?.balance_points)>=Number(r.points_required)?'Pontos suficientes':'Acumule mais pontos'}</span></div></article>`).join('')||'<p>Nenhuma recompensa disponível.</p>'}</div>`;
  } else {
   h=`<div class="headline"><div><span class="eyebrow">EXTRATO</span><h1>Meu histórico</h1><p>Somente movimentações vinculadas à sua conta.</p></div></div><section class="card"><div class="table-scroll"><table class="table"><thead><tr><th>Data</th><th>Movimentação</th><th>Pontos</th></tr></thead><tbody>${data.history.map(t=>`<tr><td>${br(t.created_at)}</td><td>${esc(t.kind==='credit'?'Compra pontuada':t.kind==='redemption'?'Resgate':'Vencimento')}</td><td>${Number(t.delta_points)>0?'+':''}${fmt(t.delta_points)}</td></tr>`).join('')||'<tr><td colspan="3">Nenhum movimento registrado</td></tr>'}</tbody></table></div></section>`;
  }
