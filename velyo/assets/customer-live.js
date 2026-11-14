@@ -25,7 +25,7 @@ function login(){
  if(authStep==='login'){
   form=`<div class="auth-customer-title"><h2>Acesse sua conta.</h2><p>Entre com seu celular e a senha cadastrada.</p></div>
   <form id="customerLogin" class="customer-auth-form"><label class="field">Celular<input name="phone" type="tel" autocomplete="tel" inputmode="tel" placeholder="(89) 99999-9999" required></label>
-  <label class="field">Senha<input name="password" type="password" autocomplete="current-password" required minlength="12"></label>
+  <label class="field">Senha<input name="password" type="password" autocomplete="current-password" required minlength="6"></label>
   <button class="btn" type="submit">Entrar na minha conta</button></form>
   <div class="customer-auth-switch"><span>É seu primeiro acesso?</span><button type="button" id="startFirstAccess" class="customer-text-link">Criar minha senha</button></div>`;
  }else if(authStep==='phone'){
