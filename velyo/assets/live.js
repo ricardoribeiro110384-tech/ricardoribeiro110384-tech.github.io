@@ -11,12 +11,13 @@ const pct = n => n == null ? '—' : `${n.toLocaleString('pt-BR',{maximumFractio
 const uuid = () => crypto.randomUUID();
 let api=null, user=null, tenants=[], tenantId='',bundle=null, view='dashboard', period=30, busy=false, error='', filter='', consentOnly=false, memberships=[], membership=null;
 const PORTAL=document.body.dataset.portal==='balcao'?'balcao':'admin';
-const allowedViews=PORTAL==='balcao'?new Set(['counter']):new Set(['dashboard','reports','customers','rewards']);
+const allowedViews=PORTAL==='balcao'?new Set(['counter']):new Set(['dashboard','reports','customers','rewards','program','movements']);
 view=PORTAL==='balcao'?'counter':'dashboard';
 const pending=new Map();
 let toastTimer = null;
+let editingRewardId='',selectedCustomerId='';
 let authMode='login', authEmail='';
-const NAV=(PORTAL==='balcao'?[['counter','⇄','Operação do balcão']]:[['dashboard','◫','Visão geral'],['reports','▥','Relatórios'],['customers','♧','Clientes'],['rewards','✦','Recompensas']]);
+const NAV=(PORTAL==='balcao'?[['counter','⇄','Operação do balcão']]:[['dashboard','◫','Visão geral'],['customers','♧','Clientes e pontos'],['rewards','✦','Brindes'],['program','⚙','Programa de pontos'],['movements','⇄','Movimentações'],['reports','▥','Relatórios']]);
 function isConfigReady(){return !!window.VELYO_CONFIG?.supabaseUrl && !!window.VELYO_CONFIG?.publishableKey}
 function toast(msg,kind='ok'){
   const node=$('#toast'); if(!node)return;
@@ -35,12 +36,28 @@ function isManager(){return ['owner','admin'].includes(memberRole())}
 function custName(id){return bundle.loyalty_customers.find(x=>x.id===id)?.name||'Cliente'}
 function rewardOptions(){return bundle.loyalty_rewards.filter(r=>r.is_active && (r.stock===null||r.stock>0)).map(r=>`<option value="${e(r.id)}">${e(r.title)} · ${fmt(r.points_required)} pts</option>`).join('')}
 function zeroOrLimited(){const n=bundle.loyalty_point_transactions.length;return n>=1000?`<div class="live-alert">Este painel exibe até 1.000 transações recentes. Os relatórios ficam parciais quando esse limite é atingido; paginação será necessária antes de usar com alto volume.</div>`:'';}
+function onboarding(){
+ const customers=bundle.loyalty_customers.length;
+ const rewards=bundle.loyalty_rewards.filter(r=>r.is_active).length;
+ const transactions=bundle.loyalty_point_transactions.length;
+ if(customers>0&&rewards>0&&transactions>0)return '';
+ return `<section class="live-start">
+  <div class="live-start-head"><span class="live-start-tag">PRIMEIROS PASSOS</span><h2>Prepare seu programa de fidelidade</h2><p>As métricas começam a aparecer quando houver clientes e compras pontuadas. Nenhum dado será inventado.</p></div>
+  <div class="live-start-steps">
+   <button type="button" data-view="program" class="live-start-step"><b>1 · Programa de pontos</b><span>Defina quantos pontos valem R$ 1,00 e a validade.</span><small>Configurar →</small></button>
+   <button type="button" data-view="rewards" class="live-start-step"><b>2 · Cadastrar brindes</b><span>${rewards} recompensa(s) ativa(s) no catálogo.</span><small>Gerenciar brindes →</small></button>
+   <button type="button" data-view="customers" class="live-start-step"><b>3 · Cadastrar clientes</b><span>${customers} cliente(s) cadastrado(s) nesta empresa.</span><small>Abrir clientes →</small></button>
+   <a href="../balcao/" class="live-start-step" target="_blank" rel="noopener noreferrer"><b>4 · Registrar compras</b><span>${transactions} movimentação(ões) registrada(s).</span><small>Abrir Balcão →</small></a>
+  </div>
+ </section>`;
+}
 function dashboard(){
   const m=makeStats();const total=bundle.loyalty_customers.length;
   const rows=m.risks.slice(0,5).map(r=>`<tr><td><b>${e(r.name)}</b></td><td>${r.daysSince} dias</td><td>${curr(r.registeredSpendCents)}</td><td><span class="live-tag ${r.optIn?'':'warn'}">${r.optIn?'Autorizou comunicação':'Sem autorização'}</span></td></tr>`).join('');
   const recent=bundle.loyalty_point_transactions.slice(0,7).map(t=>`<tr><td>${dateBR(t.created_at)}</td><td>${e(custName(t.customer_id))}</td><td>${t.kind==='credit'?'Compra pontuada':t.kind==='redemption'?'Resgate':'Vencimento'}</td><td>${Number(t.delta_points)>0?'+':''}${fmt(t.delta_points)} pts</td></tr>`).join('');
   return `${title('Visão executiva',`Dados da empresa ${e(activeTenant()?.name)} · últimos ${period} dias`,rangeControl())}
     <section class="live-banner"><div><b>Decisões com base em compras registradas.</b><p>Sem estimativas artificiais: compras importadas sem valor não são tratadas como receita; métricas com poucos dados podem estar vazias.</p></div><span class="live-tag">Ambiente de homologação</span></section>
+    ${onboarding()}
     ${zeroOrLimited()}
     <div class="live-stats">${stat('Clientes registrados',fmt(total),'Base do estabelecimento','purple')}${stat('Volume de compras pontuadas',curr(m.periodVolumeCents),'Não representa faturamento total','teal')}${stat('Taxa de recompra',pct(m.repurchaseRate),`${m.repeatBuyers} de ${m.activeBuyers} compradores do período`,'orange')}${stat('Clientes em risco',fmt(m.riskCount),'≥2 compras · ≥30 dias sem compra','rose')}</div>
     <div class="live-grid">${panel('Recorrência','Recompras dentre os compradores com registros no período',`<div class="content"><div class="live-line"><span>Compraram uma vez</span><b>${fmt(m.activeBuyers-m.repeatBuyers)}</b></div><div class="live-bar"><i style="width:${m.activeBuyers?100*(m.activeBuyers-m.repeatBuyers)/m.activeBuyers:0}%"></i></div><div class="live-line"><span>Compraram duas ou mais vezes</span><b>${fmt(m.repeatBuyers)}</b></div><div class="live-bar"><i style="width:${m.repurchaseRate||0}%;background:linear-gradient(90deg,#14b8a6,#63cfbe)"></i></div><p class="live-note">Esta é a recompra observada entre compradores do período, não a taxa de retenção de toda a base.</p></div>`)}
@@ -54,7 +71,7 @@ function reports(){
  const risks=m.risks.filter(r=>!consentOnly||r.optIn);
  const rows=risks.map(r=>`<tr><td><b>${e(r.name)}</b></td><td>${dateBR(r.lastPurchase)}</td><td>${fmt(r.purchases)}</td><td>${curr(r.registeredSpendCents)}</td><td>${r.optIn?'Sim':'Não'}</td></tr>`).join('');
  const costRows=m.rewardRows.map(r=>`<tr><td>${e(r.name)}</td><td>${fmt(r.quantity)}</td><td>${curr(r.knownCostCents)}</td><td>${fmt(r.unpriced)}</td></tr>`).join('');
- return `${title('Relatórios gerenciais','Três relatórios úteis, sem métricas fictícias.',rangeControl())}${zeroOrLimited()}
+ return `${title('Relatórios gerenciais','Três relatórios úteis, sem métricas fictícias.',rangeControl())}${onboarding()}${zeroOrLimited()}
    <div class="live-stats">${stat('Compras registradas',fmt(m.purchaseCount),'Compras com valor e pontos','purple')}${stat('Compradores',fmt(m.activeBuyers),'Com ao menos uma compra','teal')}${stat('Taxa de recompra',pct(m.repurchaseRate),'Duas ou mais compras no período','orange')}${stat('Custo de recompensas',curr(m.knownCostCents),m.unpricedRedemptions?'Total parcial':'Custos informados','rose')}</div>
    ${panel('Recompra no período','Definição: compradores com ≥2 compras ÷ compradores com ≥1 compra',`<div class="content"><div class="live-line"><span>Compradores com recompra</span><b>${fmt(m.repeatBuyers)}</b></div><div class="live-bar"><i style="width:${m.repurchaseRate||0}%"></i></div><p class="live-note">${fmt(m.noPurchaseHistory)} clientes ainda não têm histórico de compra com valor, logo não são classificados.</p></div>`)}
    ${panel('Clientes para revisão','Mínimo de duas compras registradas; 30 dias sem nova compra',`<div class="content"><label class="live-row" style="font-size:12px;color:#62718c"><input id="consent" type="checkbox" ${consentOnly?'checked':''}> Mostrar somente quem autorizou mensagens</label><p class="live-note">A classificação indica oportunidade de contato, não prevê abandono. Só envie mensagens respeitando autorização e finalidade.</p></div>${table(['Cliente','Última compra','Compras','Valor registrado','Consentiu'],rows)}`)}
@@ -67,6 +84,43 @@ function customers(){
  <div class="live-grid">${panel('Pesquisar clientes','Busca por nome ou telefone',`<div class="content"><label class="live-field">Buscar <input id="search" placeholder="Nome ou telefone" value="${e(filter)}"></label></div>`)}
  ${panel('Cadastrar cliente','Cadastro por telefone, sem disparo de mensagem',`<form id="createCustomer" class="live-form"><label class="live-field">Nome completo <input name="name" required minlength="2" maxlength="120"></label><label class="live-field">Telefone com DDI <input name="phone" required placeholder="+5586999999999" pattern="\\+[1-9][0-9]{7,14}"></label><button class="live-btn" type="submit">Cadastrar cliente</button></form>`)}</div>
  ${panel('Base de clientes','Saldo consultado na tabela; operações usam saldo atualizado via função do banco',table(['Nome','Telefone','Saldo registrado*','Mensagens','Cadastro'],rows))}<p class="live-note">*Saldo registrado: pontos vencidos são descontados quando ocorre a consulta de saldo ou movimentação no banco.</p>`;
+}
+function program(){
+ const p=bundle.loyalty_programs[0];
+ if(!p)return `${title('Programa de pontos','Configurações desta empresa')}${panel('Sem programa','O programa ainda não foi inicializado para esta empresa.','<p class="live-note" style="padding:20px">Verifique a criação da empresa no painel do proprietário.</p>')}`;
+ const rate=Number(p.points_per_brl),expiry=Number(p.expiry_days);
+ return `${title('Programa de pontos','Defina as regras de acumulação e validade desta empresa.')}
+ <div class="live-stats">
+ ${stat('Pontos por R$ 1,00',fmt(rate),'Válido para novas compras','purple')}
+ ${stat('Validade',`${fmt(expiry)} dias`,'Contados a partir do crédito','teal')}
+ ${stat('Situação',p.is_active?'Ativo':'Pausado','Pontuação de novas compras','orange')}
+ ${stat('Brindes ativos',fmt(bundle.loyalty_rewards.filter(r=>r.is_active).length),'Catálogo disponível','rose')}
+ </div>
+ ${panel('Regras do programa','Apenas proprietário e administradores autorizados podem modificar',isManager()?`
+ <form id="saveProgram" class="live-form live-config-form">
+ <label class="live-field">Pontos por R$ 1,00 gasto <input type="number" name="rate" min="0.01" max="1000" step="0.01" required value="${e(rate)}"></label>
+ <label class="live-field">Validade dos novos pontos (dias) <input type="number" name="expiry" min="1" max="3650" step="1" required value="${e(expiry)}"></label>
+ <label class="live-field">Situação <select name="enabled"><option value="true" ${p.is_active?'selected':''}>Ativo</option><option value="false" ${!p.is_active?'selected':''}>Pausado</option></select></label>
+ <div class="live-form-actions"><button type="submit" class="live-btn">Salvar configurações</button></div>
+ <p class="live-note">As novas regras de pontuação e validade se aplicam às compras futuras. Os pontos já emitidos mantêm suas condições anteriores.</p>
+ </form>`:'<div class="content"><p>Somente gestores podem alterar as regras do programa.</p></div>')}
+ ${panel('Funcionamento do programa','Valores usados no Balcão',`<div class="content"><p>Ao registrar uma compra de R$ 100,00, com a regra atual de ${fmt(rate)} ponto(s) por real, a pontuação prevista é ${fmt(Math.floor(100*rate))} pontos.</p><p>O saldo é validado no banco no momento do resgate, incluindo pontos vencidos. O programa pode ser pausado pelo gestor.</p></div>`)}`;
+}
+function movements(){
+ const since=Date.now()-period*86400000;
+ const rows=bundle.loyalty_point_transactions.filter(t=>new Date(t.created_at).getTime()>=since);
+ const kinds={credit:'Compra pontuada',redemption:'Resgate',expiry:'Vencimento',expire:'Vencimento',adjustment:'Ajuste'};
+ const html=rows.slice(0,150).map(t=>`<tr><td>${dateBR(t.created_at)}</td><td>${e(custName(t.customer_id))}</td><td>${e(kinds[t.kind]||t.kind)}</td><td>${t.amount_cents!=null?curr(t.amount_cents):'—'}</td><td><b>${Number(t.delta_points)>0?'+':''}${fmt(t.delta_points)}</b></td></tr>`).join('');
+ return `${title('Movimentações de pontos','Histórico de créditos, resgates e vencimentos da empresa.',rangeControl())}
+ ${zeroOrLimited()}
+ <div class="live-stats">
+ ${stat('Movimentações',fmt(rows.length),'Exibidas no período','purple')}
+ ${stat('Créditos',fmt(rows.filter(x=>Number(x.delta_points)>0).reduce((v,t)=>v+Number(t.delta_points),0)),'Pontos lançados','teal')}
+ ${stat('Débitos',fmt(rows.filter(x=>Number(x.delta_points)<0).reduce((v,t)=>v-Math.abs(Number(t.delta_points)),0)),'Pontos resgatados/vencidos','orange')}
+ ${stat('Clientes com movimentação',fmt(new Set(rows.map(t=>t.customer_id)).size),'No período','rose')}
+ </div>
+ ${panel('Extrato das operações',rows.length?'Exibindo até 150 operações recentes filtradas':'Ainda não há operações neste período.',table(['Data','Cliente','Operação','Valor da compra','Pontos'],html))}
+ <p class="live-note">Histórico disponível: até 1.000 registros recentes carregados por empresa. Valores de compra aparecem apenas nos créditos registrados com valor.</p>`;
 }
 function counter(){
  const rewards=rewardOptions();
@@ -88,8 +142,8 @@ function rewards(){
 }
 function layout(){
  const nav=NAV.map(([id,ico,label])=>`<button type="button" data-view="${id}" class="${view===id?'active':''}"><span class="symbol">${ico}</span>${label}</button>`).join('');
- const page = ({dashboard, reports, customers, counter, rewards})[allowedViews.has(view)?view:(PORTAL==='balcao'?'counter':'dashboard')];
- $('#app').innerHTML=`<div class="live-shell"><div class="live-scrim" id="scrim"></div><aside class="live-sidebar" id="sidebar"><div class="live-logo">velyo<span>.</span><small>${PORTAL==='balcao'?'ATENDIMENTO':'GESTÃO E RELATÓRIOS'}</small></div><nav class="live-nav">${nav}</nav><div class="live-bottom"><strong>Velyo v0.8</strong>${PORTAL==='balcao'?'Área operacional. Relatórios e dados gerenciais não aparecem aqui.':'Painel exclusivo de gestores. Dados separados por estabelecimento.'}</div></aside><div class="live-main"><header class="live-topbar"><div class="live-row"><button class="live-mobile-menu" type="button" id="mobileMenu" aria-label="Abrir menu">☰</button><strong><span class="workspace-label">Workspace / </span>${e(activeTenant()?.name||'Empresa')}</strong></div><div class="right"><select id="tenantSelector" class="live-select" aria-label="Selecionar empresa">${tenants.map(t=>`<option value="${e(t.id)}" ${t.id===tenantId?'selected':''}>${e(t.name)}</option>`).join('')}</select><span class="email">${e(user?.email)}</span><button class="live-btn ghost" id="logout" type="button">Sair</button></div></header><div class="live-body">${page()}</div></div></div>`;
+ const page = ({dashboard, reports, customers, counter, rewards, program, movements})[allowedViews.has(view)?view:(PORTAL==='balcao'?'counter':'dashboard')];
+ $('#app').innerHTML=`<div class="live-shell"><div class="live-scrim" id="scrim"></div><aside class="live-sidebar" id="sidebar"><div class="live-logo">velyo<span>.</span><small>${PORTAL==='balcao'?'ATENDIMENTO':'ADMINISTRAÇÃO'}</small></div><nav class="live-nav">${nav}</nav><div class="live-bottom"><strong>Velyo v0.9</strong>${PORTAL==='balcao'?'Área operacional. Relatórios e dados gerenciais não aparecem aqui.':'Painel exclusivo de gestores. Dados separados por estabelecimento.'}</div></aside><div class="live-main"><header class="live-topbar"><div class="live-row"><button class="live-mobile-menu" type="button" id="mobileMenu" aria-label="Abrir menu">☰</button><strong><span class="workspace-label">Workspace / </span>${e(activeTenant()?.name||'Empresa')}</strong></div><div class="right"><select id="tenantSelector" class="live-select" aria-label="Selecionar empresa">${tenants.map(t=>`<option value="${e(t.id)}" ${t.id===tenantId?'selected':''}>${e(t.name)}</option>`).join('')}</select><span class="email">${e(user?.email)}</span><button class="live-btn ghost" id="logout" type="button">Sair</button></div></header><div class="live-body">${page()}</div></div></div>`;
 }
 function login(){
  $('#app').innerHTML=renderAuth({configured:isConfigReady(),mode:authMode,email:authEmail,area:PORTAL});
