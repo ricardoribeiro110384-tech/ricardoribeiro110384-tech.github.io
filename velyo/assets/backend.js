@@ -7,6 +7,15 @@ const SESSION_PREFIX = 'velyo_v10_session_';
 const TABLES = new Set(['loyalty_tenants','loyalty_memberships','loyalty_programs','loyalty_customers',
   'loyalty_accounts','loyalty_rewards','loyalty_reward_costs','loyalty_point_transactions','loyalty_point_lots','loyalty_redemptions','loyalty_platform_admins','loyalty_subscriptions']);
 const RFC_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const REWARD_IMAGE_BUCKET='velyo-reward-images';
+const REWARD_IMAGE_PATH=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|png|webp)$/;
+const MAX_REWARD_IMAGE_BYTES=2*1024*1024;
+function rewardMimeExtension(file){
+  if(!file||typeof file.size!=='number'||file.size<=0||file.size>MAX_REWARD_IMAGE_BYTES)throw Error('Escolha uma foto JPG, PNG ou WEBP com até 2 MB.');
+  const ext=({'image/jpeg':'jpg','image/png':'png','image/webp':'webp'})[file.type];
+  if(!ext)throw Error('Formato não permitido. Use JPG, PNG ou WEBP.');
+  return ext;
+}
 /** Normaliza o telefone de balcão para a chave E.164 usada pelo cadastro.
  * Números nacionais: DDD + 8/9 dígitos; também aceita 55 + DDD + número e +E.164.
  * Não faz busca por sufixo para evitar movimentações na conta errada.
@@ -138,6 +147,37 @@ export class VelyoBackend {
   async createTenant(name,slug,userId){
     return this.insert('loyalty_tenants',{name,slug,business_sector:'general',owner_user_id:userId});
   }
+  rewardImageUrl(path){
+    if(!path||!REWARD_IMAGE_PATH.test(path))return '';
+    return `${this.base}/storage/v1/object/public/${REWARD_IMAGE_BUCKET}/${path}`;
+  }
+  validateRewardImage(file){return rewardMimeExtension(file);}
+  async uploadRewardPhoto(tenantId,file){
+    if(!RFC_UUID.test(tenantId))throw Error('Empresa inválida para upload de foto.');
+    const ext=rewardMimeExtension(file);
+    if(!this.session?.access_token)throw Error('Entre novamente na Administração para enviar fotos.');
+    if(this.session.expires_at && Date.now()>this.session.expires_at*1000-60000)await this.refresh();
+    const path=`${tenantId}/${crypto.randomUUID()}.${ext}`;
+    const headers={apikey:this.key,Authorization:`Bearer ${this.session.access_token}`,'Content-Type':file.type,'cache-control':'3600','x-upsert':'false'};
+    let res;
+    try{res=await this.fetch(`${this.base}/storage/v1/object/${REWARD_IMAGE_BUCKET}/${path}`,{method:'POST',headers,body:file});}
+    catch{throw Error('Falha na conexão durante o envio da foto.');}
+    const raw=await res.text();let parsed={};try{parsed=raw?JSON.parse(raw):{};}catch{parsed={message:raw};}
+    if(!res.ok)throw Error(String(parsed.message||parsed.error||`Falha no envio da foto (HTTP ${res.status}).`).slice(0,200));
+    return path;
+  }
+  async setRewardPhoto(tenantId,rewardId,path){
+    if(!RFC_UUID.test(tenantId)||!RFC_UUID.test(rewardId))throw Error('Identificador de brinde inválido.');
+    if(path!==null&&(!REWARD_IMAGE_PATH.test(path)||!path.startsWith(`${tenantId}/`)))throw Error('Imagem inválida para esta empresa.');
+    const params=new URLSearchParams({tenant_id:`eq.${tenantId}`,id:`eq.${rewardId}`,select:'id,image_path'});
+    const rows=await this.http(`/rest/v1/loyalty_rewards?${params}`,{method:'PATCH',body:{image_path:path},headers:{Prefer:'return=representation'}});
+    if(!Array.isArray(rows)||rows.length!==1)throw Error('Não foi possível associar a foto ao brinde.');
+    return rows[0];
+  }
+  async removeRewardPhoto(path){
+    if(!REWARD_IMAGE_PATH.test(String(path||'')))throw Error('Identificador de foto inválido.');
+    return this.http(`/storage/v1/object/${REWARD_IMAGE_BUCKET}`,{method:'DELETE',body:{prefixes:[path]}});
+  }
   async bundle(tenantId){
     if(!RFC_UUID.test(tenantId))throw Error('Identificador da empresa inválido');
     const cfg=[
@@ -145,7 +185,7 @@ export class VelyoBackend {
       ['loyalty_programs',{cols:'tenant_id,points_per_brl,expiry_days,is_active'}],
       ['loyalty_customers',{cols:'id,tenant_id,name,phone_e164,birth_date,marketing_opt_in,created_at',order:'created_at.desc'}],
       ['loyalty_accounts',{cols:'tenant_id,customer_id,balance_points'}],
-      ['loyalty_rewards',{cols:'id,tenant_id,title,points_required,stock,is_active'}],
+      ['loyalty_rewards',{cols:'id,tenant_id,title,points_required,stock,is_active,image_path'}],
       ['loyalty_reward_costs',{cols:'tenant_id,reward_id,unit_cost_cents'}],
       ['loyalty_point_transactions',{cols:'id,tenant_id,customer_id,kind,delta_points,amount_cents,reward_id,request_id,created_at',order:'created_at.desc',limit:1000}],
       ['loyalty_point_lots',{cols:'id,tenant_id,customer_id,remaining_points,expires_at'}],
@@ -161,7 +201,7 @@ export class VelyoBackend {
     if(!RFC_UUID.test(tenantId)) throw Error('Identificador da empresa inválido');
     // Não expõe a lista completa de clientes: pesquisa individual pelo telefone no atendimento.
     const loyalty_rewards=await this.select('loyalty_rewards',tenantId,{
-      cols:'id,tenant_id,title,points_required,stock,is_active',limit:500
+      cols:'id,tenant_id,title,points_required,stock,is_active,image_path',limit:500
     });
     return {loyalty_rewards};
   }
