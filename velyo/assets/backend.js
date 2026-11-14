@@ -81,6 +81,28 @@ export class VelyoBackend {
     const s=await this.http('/auth/v1/token?grant_type=password',{method:'POST',authenticated:false,body:{email:email.trim(),password}});
     this.saveSession(s);return s;
   }
+  async signUpStaff(email,password,redirectUrl){
+    const mail=String(email||'').trim().toLowerCase();
+    if(!/^\S+@\S+\.\S+$/.test(mail)||mail.length>254)throw Error('E-mail inválido.');
+    if(typeof password!=='string'||password.length<12||password.length>128)throw Error('Use uma senha de 12 a 128 caracteres.');
+    const redirect=new URL(redirectUrl);
+    if(redirect.origin!==window.location.origin)throw Error('Redirecionamento não autorizado.');
+    return this.http('/auth/v1/signup?'+new URLSearchParams({redirect_to:redirect.origin+redirect.pathname}),{
+      method:'POST',authenticated:false,body:{email:mail,password}
+    });
+  }
+  async createStaffInvite(tenantId,email){
+    return this.rpc('loyalty_create_staff_invite',{p_tenant:tenantId,p_email:String(email).trim()});
+  }
+  async claimStaffInvite(token){
+    if(!/^[0-9a-f]{64}$/.test(String(token||'')))throw Error('Código de convite inválido.');
+    return this.rpc('loyalty_claim_staff_invite',{p_token:token});
+  }
+  async listTeam(tenantId){return this.rpc('loyalty_list_team',{p_tenant:tenantId});}
+  async setStaffActive(tenantId,userId,active){
+    if(!RFC_UUID.test(tenantId)||!RFC_UUID.test(userId)||typeof active!=='boolean')throw Error('Dados de funcionário inválidos.');
+    return this.rpc('loyalty_set_staff_active',{p_tenant:tenantId,p_user:userId,p_active:active});
+  }
   async signInPhone(phone,password){
     if(!/^\+[1-9]\d{7,14}$/.test(phone)||!password)throw Error('Informe celular com DDI e senha.');
     const s=await this.http('/auth/v1/token?grant_type=password',{method:'POST',authenticated:false,body:{phone,password}});
@@ -138,7 +160,7 @@ export class VelyoBackend {
     return this.http(`/rest/v1/${table}?select=*`,{method:'POST',body:data,headers:{Prefer:'return=representation'}});
   }
   async rpc(fn,args){
-    if(!['loyalty_credit_purchase','loyalty_redeem_reward','loyalty_current_balance','loyalty_create_reward','loyalty_claim_customer','loyalty_claim_customer_by_slug'].includes(fn))throw Error('Operação RPC não autorizada');
+    if(!['loyalty_credit_purchase','loyalty_redeem_reward','loyalty_current_balance','loyalty_create_reward','loyalty_claim_customer','loyalty_claim_customer_by_slug','loyalty_create_staff_invite','loyalty_claim_staff_invite','loyalty_list_team','loyalty_set_staff_active'].includes(fn))throw Error('Operação RPC não autorizada');
     return this.http(`/rest/v1/rpc/${fn}`,{method:'POST',body:args});
   }
   async listTenants(){
