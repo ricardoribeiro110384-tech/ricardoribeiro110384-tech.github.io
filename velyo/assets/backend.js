@@ -148,6 +148,35 @@ export class VelyoBackend {
     if(!RFC_UUID.test(tenantId)||!RFC_UUID.test(userId)||typeof active!=='boolean')throw Error('Dados de funcionário inválidos.');
     return this.rpc('loyalty_set_staff_active',{p_tenant:tenantId,p_user:userId,p_active:active});
   }
+  /**
+   * Primeiro acesso do cliente: apenas o OTP do Supabase comprova a posse do celular.
+   * Nunca cria vínculo de fidelidade sem verificação pelo serviço de autenticação.
+   */
+  async sendCustomerPhoneOtp(phone){
+    const normalized=normalizePhoneE164(phone);
+    if(!/^\+55[1-9][0-9]9[0-9]{8}$/.test(normalized))
+      throw Error('Informe um celular brasileiro com DDD (11 dígitos).');
+    return this.http('/auth/v1/otp',{
+      method:'POST',authenticated:false,
+      body:{phone:normalized,create_user:true,channel:'sms'}
+    });
+  }
+  async verifyCustomerPhoneOtp(phone,code){
+    const normalized=normalizePhoneE164(phone);
+    if(!/^\+55[1-9][0-9]9[0-9]{8}$/.test(normalized))
+      throw Error('Celular inválido.');
+    const token=String(code||'').trim();
+    if(!/^[0-9]{6}$/.test(token))throw Error('Digite os 6 números recebidos por SMS.');
+    const response=await this.http('/auth/v1/verify',{
+      method:'POST',authenticated:false,
+      body:{phone:normalized,token,type:'sms'}
+    });
+    if(!response?.access_token||!response?.refresh_token)
+      throw Error('Não foi possível confirmar o celular. Solicite outro código.');
+    const expires_at=response.expires_at||Math.floor(Date.now()/1000)+Number(response.expires_in||3600);
+    this.saveSession({...response,expires_at});
+    return response;
+  }
   async signInPhone(phone,password){
     if(!/^\+[1-9]\d{7,14}$/.test(phone)||!password)throw Error('Informe celular com DDI e senha.');
     const s=await this.http('/auth/v1/token?grant_type=password',{method:'POST',authenticated:false,body:{phone,password}});
