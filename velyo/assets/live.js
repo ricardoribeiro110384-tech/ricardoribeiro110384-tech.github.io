@@ -15,7 +15,7 @@ const allowedViews=PORTAL==='balcao'?new Set(['counter']):new Set(['dashboard','
 view=PORTAL==='balcao'?'counter':'dashboard';
 const pending=new Map();
 let toastTimer = null;
-let editingRewardId='',selectedCustomerId='';
+let editingRewardId='',selectedCustomerId='',rewardPhotoPreviewURL='';
 let authMode='login', authEmail='';
 const NAV_GROUPS=PORTAL==='balcao'
  ?[{title:'ATENDIMENTO',items:[['counter','⇄','Operação do balcão']]}]
@@ -154,30 +154,53 @@ function counter(){
  ${panel('Cadastro rápido de cliente','Se o telefone ainda não estiver cadastrado, registre o cliente antes da operação.',`<form id="createCustomer" class="live-form" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));align-items:end"><label class="live-field">Nome <input name="name" required minlength="2" maxlength="120"></label><label class="live-field">Telefone com DDD <input type="tel" inputmode="tel" name="phone" required maxlength="24" placeholder="Ex.: (89) 99999-9999"></label><button class="live-btn" type="submit">Cadastrar cliente</button></form>`)}
  `;
 }
+function rewardImage(r,size='sm'){
+ const url=api?.rewardImageUrl(r.image_path);
+ return url?`<span class="reward-thumb ${size}"><img src="${e(url)}" alt="Foto de ${e(r.title)}" loading="lazy"></span>`:
+ `<span class="reward-thumb ${size} reward-thumb-empty" role="img" aria-label="Sem foto">🎁</span>`;
+}
+
+function releaseRewardPhotoPreview(){
+ if(rewardPhotoPreviewURL){URL.revokeObjectURL(rewardPhotoPreviewURL);rewardPhotoPreviewURL='';}
+}
+
+function fileFromRewardForm(form){
+ const file=form.querySelector('input[type="file"][name="photo"]')?.files?.[0]||null;
+ if(file)api.validateRewardImage(file);
+ return file;
+}
+
 function rewards(){
  const active=bundle.loyalty_rewards.filter(r=>r.is_active).length;
  const depleted=bundle.loyalty_rewards.filter(r=>r.is_active&&r.stock===0).length;
  const chosen=bundle.loyalty_rewards.find(r=>r.id===editingRewardId);
- const rows=bundle.loyalty_rewards.map(r=>`<tr><td><b>${e(r.title)}</b></td><td>${fmt(r.points_required)}</td><td>${r.stock===null?'Ilimitado':fmt(r.stock)}</td><td>${r.unit_cost_cents===null?'Não informado':curr(r.unit_cost_cents)}</td><td><span class="live-tag ${r.is_active?'':'gray'}">${r.is_active?'Ativo':'Inativo'}</span></td><td>${isManager()?`<button type="button" data-edit-reward="${e(r.id)}" class="live-btn secondary live-small-btn">Editar</button>`:'—'}</td></tr>`).join('');
- const create=isManager()?panel('Cadastrar brinde','Escolha nome, pontuação e estoque do benefício.',`<form id="createReward" class="live-form live-config-form">
+ const rows=bundle.loyalty_rewards.map(r=>`<tr><td>${rewardImage(r,'sm')}</td><td><b>${e(r.title)}</b></td><td>${fmt(r.points_required)}</td><td>${r.stock===null?'Ilimitado':fmt(r.stock)}</td><td>${r.unit_cost_cents===null?'Não informado':curr(r.unit_cost_cents)}</td><td><span class="live-tag ${r.is_active?'':'gray'}">${r.is_active?'Ativo':'Inativo'}</span></td><td>${isManager()?`<button type="button" data-edit-reward="${e(r.id)}" class="live-btn secondary live-small-btn">Editar</button>`:'—'}</td></tr>`).join('');
+ const photoField=`<label class="live-field reward-photo-field">Foto do brinde (opcional)
+ <input type="file" name="photo" data-reward-photo accept="image/jpeg,image/png,image/webp">
+ <small>JPG, PNG ou WEBP · máximo 2 MB</small>
+ </label>`;
+ const create=isManager()?panel('Cadastrar brinde','Escolha nome, pontuação, estoque e, se desejar, uma foto.',`<form id="createReward" class="live-form live-config-form">
  <label class="live-field">Nome do brinde <input name="title" required minlength="2" maxlength="120" placeholder="Caneca personalizada"></label>
  <label class="live-field">Pontos necessários <input type="number" name="points" required min="1" step="1" placeholder="50"></label>
  <label class="live-field">Estoque (vazio = ilimitado) <input type="number" name="stock" min="0" step="1" placeholder="10"></label>
  <label class="live-field">Custo unitário (R$), opcional <input name="cost" inputmode="decimal" placeholder="4,50"></label>
+ <div class="reward-upload"><div class="reward-photo-preview">${rewardImage({title:'Novo brinde'},'lg')}</div>${photoField}</div>
  <div class="live-form-actions"><button type="submit" class="live-btn">Cadastrar brinde</button></div></form>`):'';
- const edit=chosen&&isManager()?panel(`Editar: ${e(chosen.title)}`,'Altere o brinde sem reescrever resgates anteriores.',`<form id="saveReward" class="live-form live-config-form">
+ const edit=chosen&&isManager()?panel(`Editar: ${e(chosen.title)}`,'Altere o brinde, substitua a foto ou remova a imagem atual.',`<form id="saveReward" class="live-form live-config-form">
  <input type="hidden" name="rewardId" value="${e(chosen.id)}">
  <label class="live-field">Nome do brinde <input name="title" minlength="2" maxlength="120" required value="${e(chosen.title)}"></label>
  <label class="live-field">Pontos necessários <input type="number" name="points" min="1" step="1" required value="${e(chosen.points_required)}"></label>
  <label class="live-field">Estoque disponível (vazio = ilimitado) <input type="number" name="stock" min="0" step="1" value="${chosen.stock===null?'':e(chosen.stock)}"></label>
  <label class="live-field">Status <select name="enabled"><option value="true" ${chosen.is_active?'selected':''}>Ativo</option><option value="false" ${!chosen.is_active?'selected':''}>Inativo</option></select></label>
+ <div class="reward-upload"><div class="reward-photo-preview">${rewardImage(chosen,'lg')}</div><div>${photoField}${chosen.image_path?`<label class="reward-remove-photo"><input type="checkbox" name="removePhoto"> Remover foto atual</label>`:''}</div></div>
  <div class="live-form-actions"><button type="submit" class="live-btn">Salvar alterações</button><button type="button" class="live-btn ghost" id="cancelEditReward">Cancelar</button></div></form>`):'';
- return `${title('Brindes e vouchers','Cadastre e gerencie os brindes disponíveis para resgate.')}
+ return `${title('Brindes e vouchers','Cadastre brindes com imagem e gerencie as recompensas que seus clientes poderão resgatar.')}
  <div class="live-stats">${stat('Cadastrados',fmt(bundle.loyalty_rewards.length),'Total do catálogo','purple')}${stat('Ativos',fmt(active),'Disponíveis','teal')}${stat('Sem estoque',fmt(depleted),'Reposição necessária','orange')}${stat('Inativos',fmt(bundle.loyalty_rewards.length-active),'Não resgatáveis','rose')}</div>
  ${create}${edit}
- <p class="live-note">Brindes com valor fixo em pontos estão disponíveis. Vouchers de desconto com regras específicas ainda não foram implementados.</p>
- ${panel('Catálogo de brindes',bundle.loyalty_rewards.length?'Use “Editar” para alterar estoque, pontos ou desativar um brinde.':'Nenhum brinde cadastrado. Use o formulário acima para criar o primeiro.',table(['Brinde','Pontos','Estoque','Custo unitário','Status','Ações'],rows))}`;
+ <p class="live-note">As fotos são opcionais. Vouchers de desconto com regras específicas ainda não foram implementados.</p>
+ ${panel('Catálogo de brindes',bundle.loyalty_rewards.length?'Use “Editar” para alterar foto, estoque, pontos ou desativar um brinde.':'Nenhum brinde cadastrado. Use o formulário acima para criar o primeiro.',table(['Foto','Brinde','Pontos','Estoque','Custo unitário','Status','Ações'],rows))}`;
 }
+
 function purchases(){
  const since=Date.now()-period*86400000;
  const transactions=bundle.loyalty_point_transactions.filter(t=>t.kind==='credit'&&new Date(t.created_at).getTime()>=since);
