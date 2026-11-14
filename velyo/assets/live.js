@@ -79,11 +79,24 @@ function reports(){
 }
 function customers(){
  const list=bundle.loyalty_customers.filter(c=>`${c.name} ${c.phone_e164}`.toLowerCase().includes(filter.toLowerCase()));
- const rows=list.map(c=>{const account=bundle.loyalty_accounts.find(a=>a.customer_id===c.id);return `<tr><td><b>${e(c.name)}</b></td><td>${e(c.phone_e164)}</td><td>${fmt(account?.balance_points)} pts*</td><td>${c.marketing_opt_in?'Sim':'Não'}</td><td>${dateBR(c.created_at)}</td></tr>`}).join('');
- return `${title('Clientes',`${fmt(bundle.loyalty_customers.length)} cadastrados nesta empresa`)}
- <div class="live-grid">${panel('Pesquisar clientes','Busca por nome ou telefone',`<div class="content"><label class="live-field">Buscar <input id="search" placeholder="Nome ou telefone" value="${e(filter)}"></label></div>`)}
- ${panel('Cadastrar cliente','Cadastro por telefone, sem disparo de mensagem',`<form id="createCustomer" class="live-form"><label class="live-field">Nome completo <input name="name" required minlength="2" maxlength="120"></label><label class="live-field">Telefone com DDI <input name="phone" required placeholder="+5586999999999" pattern="\\+[1-9][0-9]{7,14}"></label><button class="live-btn" type="submit">Cadastrar cliente</button></form>`)}</div>
- ${panel('Base de clientes','Saldo consultado na tabela; operações usam saldo atualizado via função do banco',table(['Nome','Telefone','Saldo registrado*','Mensagens','Cadastro'],rows))}<p class="live-note">*Saldo registrado: pontos vencidos são descontados quando ocorre a consulta de saldo ou movimentação no banco.</p>`;
+ const rows=list.map(c=>{
+  const ac=bundle.loyalty_accounts.find(a=>a.customer_id===c.id),tx=bundle.loyalty_point_transactions.filter(t=>t.customer_id===c.id&&t.kind==='credit');
+  return `<tr><td><b>${e(c.name)}</b></td><td>${e(c.phone_e164)}</td><td>${fmt(ac?.balance_points)} pts*</td><td>${fmt(tx.length)}</td><td><button type="button" class="live-btn secondary live-small-btn" data-show-customer="${e(c.id)}">Ver extrato</button></td></tr>`;
+ }).join('');
+ const selected=bundle.loyalty_customers.find(c=>c.id===selectedCustomerId);
+ let details='';
+ if(selected){
+  const rows=bundle.loyalty_point_transactions.filter(t=>t.customer_id===selected.id).slice(0,50).map(t=>`<tr><td>${dateBR(t.created_at)}</td><td>${e(t.kind==='credit'?'Compra pontuada':t.kind==='redemption'?'Resgate':t.kind==='expiry'?'Vencimento':t.kind)}</td><td>${t.amount_cents==null?'—':curr(t.amount_cents)}</td><td>${Number(t.delta_points)>0?'+':''}${fmt(t.delta_points)}</td></tr>`).join('');
+  details=panel(`Extrato de ${e(selected.name)}`,`Telefone: ${e(selected.phone_e164)} · até 50 movimentações recentes`,`<div class="content"><div class="live-row"><button type="button" class="live-btn" data-balance-customer="${e(selected.id)}">Consultar saldo atualizado</button><button type="button" class="live-btn ghost" id="closeCustomer">Fechar extrato</button></div><p id="customerBalanceResult" class="live-note" role="status">Clique em consultar para descontar eventuais pontos vencidos e verificar o saldo atual.</p></div>${table(['Data','Operação','Valor da compra','Pontos'],rows)}`);
+ }
+ return `${title('Clientes e pontos',`${fmt(bundle.loyalty_customers.length)} cliente(s) cadastrado(s) nesta empresa`)}
+ <div class="live-grid">
+ ${panel('Pesquisar clientes','Localize pelo nome ou telefone',`<div class="content"><label class="live-field">Buscar <input id="search" value="${e(filter)}" placeholder="Nome ou telefone"></label><p class="live-note">Clique em “Ver extrato” para acompanhar o saldo e as movimentações.</p></div>`)}
+ ${panel('Cadastrar cliente','O cadastro pertence exclusivamente a esta empresa',`<form id="createCustomer" class="live-form"><label class="live-field">Nome completo <input name="name" required minlength="2" maxlength="120"></label><label class="live-field">Telefone com DDD <input type="tel" name="phone" required inputmode="tel" maxlength="24" placeholder="(89) 99999-9999"></label><button type="submit" class="live-btn">Cadastrar cliente</button></form>`)}
+ </div>
+ ${details}
+ ${panel('Base de clientes',list.length?'Selecione “Ver extrato” para consultar os pontos.':'Ainda não há clientes cadastrados ou sua busca não retornou resultados.',table(['Nome','Telefone','Saldo registrado*','Compras','Ações'],rows))}
+ <p class="live-note">*Saldo registrado pode incluir pontos vencidos ainda não processados. Consulte o saldo atualizado no extrato. Histórico limitado aos 1.000 registros recentes carregados.</p>`;
 }
 function program(){
  const p=bundle.loyalty_programs[0];
@@ -135,10 +148,27 @@ function counter(){
  `;
 }
 function rewards(){
- const rows=bundle.loyalty_rewards.map(r=>`<tr><td><b>${e(r.title)}</b></td><td>${fmt(r.points_required)}</td><td>${r.stock===null?'Ilimitado':fmt(r.stock)}</td><td>${r.unit_cost_cents===null?'Não informado':curr(r.unit_cost_cents)}</td><td>${r.is_active?'Ativa':'Inativa'}</td></tr>`).join('');
- return `${title('Recompensas','Catálogo e custos unitários do programa.')}
- ${panel('Catálogo de recompensas','Custos entram no relatório somente após cada resgate',table(['Recompensa','Pontos','Estoque','Custo unitário','Status'],rows))}
- ${isManager()?panel('Adicionar recompensa','Informe custos reais quando conhecidos. Deixe vazio se não souber.',`<form id="createReward" class="live-form" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));align-items:end"><label class="live-field">Nome <input name="title" required minlength="2" maxlength="120"></label><label class="live-field">Pontos necessários <input type="number" min="1" step="1" name="points" required></label><label class="live-field">Estoque (vazio = ilimitado) <input type="number" name="stock" min="0" step="1"></label><label class="live-field">Custo unitário R$ (opcional) <input name="cost" placeholder="Ex.: 4,50"></label><button class="live-btn" type="submit">Adicionar</button></form>`):''}`;
+ const active=bundle.loyalty_rewards.filter(r=>r.is_active).length;
+ const depleted=bundle.loyalty_rewards.filter(r=>r.is_active&&r.stock===0).length;
+ const chosen=bundle.loyalty_rewards.find(r=>r.id===editingRewardId);
+ const rows=bundle.loyalty_rewards.map(r=>`<tr><td><b>${e(r.title)}</b></td><td>${fmt(r.points_required)}</td><td>${r.stock===null?'Ilimitado':fmt(r.stock)}</td><td>${r.unit_cost_cents===null?'Não informado':curr(r.unit_cost_cents)}</td><td><span class="live-tag ${r.is_active?'':'gray'}">${r.is_active?'Ativo':'Inativo'}</span></td><td>${isManager()?`<button type="button" data-edit-reward="${e(r.id)}" class="live-btn secondary live-small-btn">Editar</button>`:'—'}</td></tr>`).join('');
+ const create=isManager()?panel('Cadastrar brinde','Escolha nome, pontuação e estoque do benefício.',`<form id="createReward" class="live-form live-config-form">
+ <label class="live-field">Nome do brinde <input name="title" required minlength="2" maxlength="120" placeholder="Caneca personalizada"></label>
+ <label class="live-field">Pontos necessários <input type="number" name="points" required min="1" step="1" placeholder="50"></label>
+ <label class="live-field">Estoque (vazio = ilimitado) <input type="number" name="stock" min="0" step="1" placeholder="10"></label>
+ <label class="live-field">Custo unitário (R$), opcional <input name="cost" inputmode="decimal" placeholder="4,50"></label>
+ <div class="live-form-actions"><button type="submit" class="live-btn">Cadastrar brinde</button></div></form>`):'';
+ const edit=chosen&&isManager()?panel(`Editar: ${e(chosen.title)}`,'Altere o brinde sem reescrever resgates anteriores.',`<form id="saveReward" class="live-form live-config-form">
+ <input type="hidden" name="rewardId" value="${e(chosen.id)}">
+ <label class="live-field">Nome do brinde <input name="title" minlength="2" maxlength="120" required value="${e(chosen.title)}"></label>
+ <label class="live-field">Pontos necessários <input type="number" name="points" min="1" step="1" required value="${e(chosen.points_required)}"></label>
+ <label class="live-field">Estoque disponível (vazio = ilimitado) <input type="number" name="stock" min="0" step="1" value="${chosen.stock===null?'':e(chosen.stock)}"></label>
+ <label class="live-field">Status <select name="enabled"><option value="true" ${chosen.is_active?'selected':''}>Ativo</option><option value="false" ${!chosen.is_active?'selected':''}>Inativo</option></select></label>
+ <div class="live-form-actions"><button type="submit" class="live-btn">Salvar alterações</button><button type="button" class="live-btn ghost" id="cancelEditReward">Cancelar</button></div></form>`):'';
+ return `${title('Brindes e recompensas','Cadastre, consulte e edite os brindes que seus clientes poderão resgatar.')}
+ <div class="live-stats">${stat('Cadastrados',fmt(bundle.loyalty_rewards.length),'Total do catálogo','purple')}${stat('Ativos',fmt(active),'Disponíveis','teal')}${stat('Sem estoque',fmt(depleted),'Reposição necessária','orange')}${stat('Inativos',fmt(bundle.loyalty_rewards.length-active),'Não resgatáveis','rose')}</div>
+ ${create}${edit}
+ ${panel('Catálogo de brindes',bundle.loyalty_rewards.length?'Use “Editar” para alterar estoque, pontos ou desativar um brinde.':'Nenhum brinde cadastrado. Use o formulário acima para criar o primeiro.',table(['Brinde','Pontos','Estoque','Custo unitário','Status','Ações'],rows))}`;
 }
 function layout(){
  const nav=NAV.map(([id,ico,label])=>`<button type="button" data-view="${id}" class="${view===id?'active':''}"><span class="symbol">${ico}</span>${label}</button>`).join('');
