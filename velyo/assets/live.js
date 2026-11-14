@@ -144,16 +144,19 @@ function movements(){
 }
 function counter(){
  const rewards=rewardOptions();
- const phoneField=(id)=>`<label class="live-field">Telefone do cliente (com DDD) <input type="tel" inputmode="tel" autocomplete="off" name="phone" id="${id}" required maxlength="24" placeholder="Ex.: (89) 99999-9999"></label>`;
+ const available=bundle.loyalty_rewards.filter(r=>r.is_active&&(r.stock===null||r.stock>0));
+ const gallery=available.length?`<div class="reward-pick-grid" role="group" aria-label="Brindes disponíveis">${available.slice(0,60).map(r=>`<button type="button" class="reward-pick-card" data-pick-reward="${e(r.id)}" aria-pressed="false">${rewardImage(r,'md')}<span><b>${e(r.title)}</b><small>${fmt(r.points_required)} pontos</small></span></button>`).join('')}</div>`:'<p class="live-note">Nenhum brinde disponível. Cadastre brindes na Administração.</p>';
+ const phoneField=id=>`<label class="live-field">Telefone do cliente (com DDD) <input type="tel" inputmode="tel" autocomplete="off" name="phone" id="${id}" required maxlength="24" placeholder="Ex.: (89) 99999-9999"></label>`;
  return `${title('Atendimento no balcão','Localize o cliente pelo número do telefone para pontuar e resgatar brindes.')}
  <div class="live-banner"><div><b>Atendimento rápido por telefone.</b><p>Não é preciso selecionar o cliente em uma lista. Informe o número com DDD e confirme o nome antes de concluir. As operações continuam protegidas contra duplicação.</p></div></div>
  <div class="live-forms">
  ${panel('Pontuar compra','Informe o telefone e o valor da compra.',`<form id="creditForm" class="live-form">${phoneField('creditPhone')}<label class="live-field">Valor da compra (R$) <input name="amount" required placeholder="Ex.: 75,90" inputmode="decimal"></label><button class="live-btn" type="submit">Pontuar compra</button><p class="live-note">O nome do cliente aparece para confirmação. Pontos e validade são definidos no banco; setor farmacêutico sujeito à validação de elegibilidade.</p></form>`)}
- ${panel('Resgatar brinde','Informe o telefone e escolha o brinde.',`<form id="redeemForm" class="live-form">${phoneField('redeemPhone')}<label class="live-field">Brinde <select required name="reward"><option value="">Selecione o brinde</option>${rewards}</select></label><button class="live-btn secondary" type="button" id="checkBalance">Consultar saldo pelo telefone</button><div id="balanceResult" class="live-note" role="status"></div><button class="live-btn teal" type="submit">Confirmar resgate</button></form>`)}
+ ${panel('Resgatar brinde','Escolha o brinde pela foto e informe o telefone.',`<form id="redeemForm" class="live-form">${phoneField('redeemPhone')}<label class="live-field">Brinde <select required name="reward" id="rewardSelector"><option value="">Selecione o brinde</option>${rewards}</select></label>${gallery}<button class="live-btn secondary" type="button" id="checkBalance">Consultar saldo pelo telefone</button><div id="balanceResult" class="live-note" role="status"></div><button class="live-btn teal" type="submit">Confirmar resgate</button></form>`)}
  </div>
  ${panel('Cadastro rápido de cliente','Se o telefone ainda não estiver cadastrado, registre o cliente antes da operação.',`<form id="createCustomer" class="live-form" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr));align-items:end"><label class="live-field">Nome <input name="name" required minlength="2" maxlength="120"></label><label class="live-field">Telefone com DDD <input type="tel" inputmode="tel" name="phone" required maxlength="24" placeholder="Ex.: (89) 99999-9999"></label><button class="live-btn" type="submit">Cadastrar cliente</button></form>`)}
  `;
 }
+
 function rewardImage(r,size='sm'){
  const url=api?.rewardImageUrl(r.image_path);
  return url?`<span class="reward-thumb ${size}"><img src="${e(url)}" alt="Foto de ${e(r.title)}" loading="lazy"></span>`:
@@ -336,6 +339,12 @@ async function onAdminClick(ev){
 }
 document.addEventListener('click',async ev=>{
  if(await onAdminClick(ev))return;
+ const picked=ev.target.closest('[data-pick-reward]');
+ if(picked&&PORTAL==='balcao'){
+  const selector=$('#rewardSelector');
+  if(selector){selector.value=picked.dataset.pickReward;selector.dispatchEvent(new Event('change',{bubbles:true}));}
+  return;
+ }
  const viewButton=ev.target.closest('[data-view]');if(viewButton){if(!allowedViews.has(viewButton.dataset.view))return;view=viewButton.dataset.view;filter='';show();$('#sidebar')?.classList.remove('open');$('#scrim')?.classList.remove('open');return;}
  if(ev.target.closest('#mobileMenu')){$('#sidebar')?.classList.add('open');$('#scrim')?.classList.add('open');return;}
  if(ev.target.closest('#scrim')){$('#sidebar')?.classList.remove('open');$('#scrim')?.classList.remove('open');return;}
@@ -371,6 +380,11 @@ document.addEventListener('change',async ev=>{
   return;
  }
 
+ if(ev.target.id==='rewardSelector'){
+  const chosen=ev.target.value;
+  document.querySelectorAll('[data-pick-reward]').forEach(node=>node.setAttribute('aria-pressed',String(node.dataset.pickReward===chosen)));
+  return;
+ }
  if(ev.target.id==='tenantSelector'){tenantId=ev.target.value;view=PORTAL==='balcao'?'counter':'dashboard';editingRewardId='';selectedCustomerId='';bundle=null;show();await run(async()=>{await load()});return;}
  if(ev.target.id==='period'){period=Number(ev.target.value);show();return;}
  if(ev.target.id==='consent'){consentOnly=ev.target.checked;show();return;}
