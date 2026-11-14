@@ -1,9 +1,15 @@
 import {VelyoBackend} from './backend.js';
 const $=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=c=>(Number(c||0)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-let api,tenants=[],subscriptions=[],tab='overview',user=null,busy=false;
-try{api=new VelyoBackend(window.VELYO_CONFIG)}catch{api=null}
-function login(){ $('#app').innerHTML=`<div class="login-wrap"><section class="login-side"><a class="brand" href="../">velyo<span>.</span></a><h1>Uma plataforma.<br><em>Várias empresas.</em></h1><p>Assinaturas e contas empresariais em um ambiente exclusivo para a equipe central.</p><div class="bottom">O acesso exige uma autorização global concedida no banco.</div></section><section class="login-form"><div class="login-panel"><span class="headtag">PROPRIETÁRIO VELYO</span><h2>Gestão da plataforma.</h2><p>Entre com sua conta autorizada.</p><form id="platformLogin"><label class="field">E-mail<input name="email" type="email" autocomplete="username" required></label><label class="field">Senha<input name="password" type="password" autocomplete="current-password" required></label><button class="btn" type="submit">Acessar gestão</button></form><p id="message" role="status" style="font-size:13px;color:#c25166" hidden></p><div class="notice">Este acesso é diferente da administração de uma loja. Não há usuários globais cadastrados automaticamente.</div><a href="../" class="small-link">← Voltar aos portais</a></div></section></div>` }
+let api,tenants=[],subscriptions=[],tab='overview',user=null,busy=false,authMode='login',authEmail='';
+try{api=new VelyoBackend(window.VELYO_CONFIG,{scope:'plataforma'})}catch{api=null}
+function login(){
+ let form='';
+ if(authMode==='recover') form=`<h2>Recuperar acesso.</h2><p>Informe seu e-mail profissional. Se a conta existir, enviaremos orientações para redefinir a senha.</p><form id="platformRecover"><label class="field">E-mail<input name="email" type="email" autocomplete="email" value="${esc(authEmail)}" required></label><button class="btn" type="submit">Enviar orientações</button></form><button type="button" class="plain-link" id="platformBack" style="border:0;background:none;padding:14px 0">Voltar ao login</button>`;
+ else if(authMode==='new-password') form=`<h2>Crie sua nova senha.</h2><p>Use pelo menos 12 caracteres. Não reutilize senhas anteriores.</p><form id="platformNewPassword"><label class="field">Nova senha<input name="password" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label><label class="field">Confirmar senha<input name="confirmation" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></label><button class="btn" type="submit">Salvar nova senha</button></form>`;
+ else form=`<h2>Gestão da plataforma.</h2><p>Entre com sua conta autorizada.</p><form id="platformLogin"><label class="field">E-mail<input name="email" type="email" autocomplete="username" required></label><label class="field">Senha<input name="password" type="password" autocomplete="current-password" required></label><button class="btn" type="submit">Acessar gestão</button></form><button type="button" class="plain-link" id="platformForgot" style="border:0;background:none;padding:12px 0">Esqueceu a senha?</button>`;
+ $('#app').innerHTML=`<div class="login-wrap"><section class="login-side"><a class="brand" href="../">velyo<span>.</span></a><h1>Uma plataforma.<br><em>Várias empresas.</em></h1><p>Assinaturas e contas empresariais em um ambiente exclusivo para a equipe central.</p><div class="bottom">O acesso exige uma autorização global concedida no banco.</div></section><section class="login-form"><div class="login-panel"><span class="headtag">PROPRIETÁRIO VELYO</span>${form}<p id="message" role="status" aria-live="polite" style="font-size:13px;color:#c25166" hidden></p><div class="notice">Este acesso é diferente da administração de uma loja. Não há usuários globais cadastrados automaticamente.</div><a href="../" class="small-link">← Voltar aos portais</a></div></section></div>`;
+}
 function feedback(s){const e=$('#message');if(e){e.textContent=s;e.hidden=false}}
 async function load(){
  user=await api.getUser();
@@ -24,6 +30,44 @@ function render(){
  $('#app').innerHTML=`<div class="portal"><aside class="aside"><a href="../" class="brand">velyo<span>.</span></a><div class="side-caption">ADMINISTRAÇÃO DA PLATAFORMA</div><nav class="aside-nav">${nav.map(([id,i,label])=>`<button data-tab="${id}" class="${tab===id?'active':''}"><span>${i}</span>${label}</button>`).join('')}</nav><div class="aside-bottom"><b>Superadmin</b><br>Somente usuários globais autorizados.</div></aside><div class="main"><header class="topbar"><b>Velyo / Gestão da plataforma</b><button class="btn alt" id="logout">Sair</button></header><main class="content">${body}</main></div></div>`;
 }
 function table(rows){return `<div class="table-scroll"><table class="table"><thead><tr><th>Estabelecimento</th><th>Plano</th><th>Situação</th><th>Mensalidade</th></tr></thead><tbody>${rows}</tbody></table></div>`}
-document.addEventListener('submit',async ev=>{if(ev.target.id!=='platformLogin')return;ev.preventDefault();if(busy)return;busy=true;const fd=new FormData(ev.target);const btn=ev.target.querySelector('button');btn.disabled=true;try{if(!api)throw Error('Supabase ainda não configurado.');await api.signIn(fd.get('email'),fd.get('password'));await load();}catch(err){feedback(err.message||'Falha no acesso.')}finally{busy=false;if(btn.isConnected)btn.disabled=false}});
-document.addEventListener('click',async ev=>{const b=ev.target.closest('[data-tab]');if(b){tab=b.dataset.tab;render();return}if(ev.target.closest('#logout')){await api?.signOut();user=null;tenants=[];subscriptions=[];login()}});
-login();if(api?.session)load().catch(()=>{api.signOut().finally(login)});
+document.addEventListener('submit',async ev=>{
+ const form=ev.target;if(!['platformLogin','platformRecover','platformNewPassword'].includes(form.id))return;
+ ev.preventDefault();if(busy)return;busy=true;
+ const fd=new FormData(form),button=form.querySelector('button[type=submit]');if(button)button.disabled=true;
+ try{
+  if(!api)throw Error('Supabase ainda não configurado.');
+  if(form.id==='platformLogin'){await api.signIn(fd.get('email'),fd.get('password'));await load();}
+  else if(form.id==='platformRecover'){
+   authEmail=String(fd.get('email')||'').trim();
+   const redirect=new URL(window.location.pathname,window.location.origin).href;
+   await api.requestPasswordReset(authEmail,redirect);
+   feedback('Se este e-mail estiver cadastrado, enviaremos orientações. Confira também a pasta de spam.');
+  }else{
+   if(fd.get('password')!==fd.get('confirmation'))throw Error('As senhas não coincidem.');
+   await api.updatePassword(fd.get('password'));await api.signOut();
+   authMode='login';login();feedback('Senha atualizada. Entre com a nova senha.');
+  }
+ }catch(err){feedback(err.message||'Falha no acesso.');}
+ finally{busy=false;if(button?.isConnected)button.disabled=false;}
+});
+document.addEventListener('click',async ev=>{
+ const b=ev.target.closest('[data-tab]');if(b){tab=b.dataset.tab;render();return;}
+ if(ev.target.closest('#platformForgot')){authMode='recover';login();return;}
+ if(ev.target.closest('#platformBack')){authMode='login';login();return;}
+ if(ev.target.closest('#logout')){await api?.signOut();user=null;tenants=[];subscriptions=[];authMode='login';login();}
+});
+async function bootstrap(){
+ if(!api)return login();
+ try{
+  if(window.location.hash){
+   if(api.loadRecoveryTokens(window.location.hash)){
+    window.history.replaceState(null,'',window.location.pathname+window.location.search);
+    authMode='new-password';login();return;
+   }
+  }
+  if(api.session)await load();else login();
+ }catch(err){await api.signOut();user=null;tenants=[];subscriptions=[];authMode='login';
+  window.history.replaceState(null,'',window.location.pathname+window.location.search);
+  login();feedback(err.message||'Não foi possível validar seu acesso.');}
+}
+bootstrap();
