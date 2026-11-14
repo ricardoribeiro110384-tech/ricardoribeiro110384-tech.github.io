@@ -16,7 +16,16 @@ view=PORTAL==='balcao'?'counter':'dashboard';
 const pending=new Map();
 let toastTimer = null;
 let editingRewardId='',selectedCustomerId='',rewardPhotoPreviewURL='';
-let teamMembers=[],staffInviteLink='';
+let teamMembers=[],staffInviteLink='',counterPinStatus={configured:false};
+const COUNTER_SESSION_KEY='velyo_counter_shared_v1';
+const counterLinkSlug=PORTAL==='balcao'?new URL(window.location.href).searchParams.get('loja'):'';
+let counterSession=null;
+if(PORTAL==='balcao'){
+ try{
+  const saved=JSON.parse(window.sessionStorage.getItem(COUNTER_SESSION_KEY)||'null');
+  if(saved?.token&&/^[a-f0-9]{64}$/.test(saved.token)&&Date.parse(saved.expires_at)>Date.now())counterSession=saved;
+ }catch{}
+}
 const invitationToken=PORTAL==='balcao' ? (new URL(window.location.href)).searchParams.get('convite') : null;
 if(invitationToken){
  const cleaned=new URL(window.location.href);
@@ -243,18 +252,28 @@ function redemptions(){
 }
 
 function salesAccess(){
- const roster=teamMembers;
- const staff=roster.filter(m=>m.role==='staff'&&m.is_active).length;
- const managers=roster.filter(m=>(m.role==='admin'||m.role==='owner')&&m.is_active).length;
- const rows=roster.map(m=>`<tr><td><b>${e(m.email||'E-mail não informado')}</b></td><td>${m.role==='owner'?'Proprietário':m.role==='admin'?'Administrador':m.role==='staff'?'Atendente':e(m.role)}</td><td><span class="live-tag ${m.is_active?'':'gray'}">${m.is_active?'Ativo':'Desativado'}</span></td><td>${m.role==='staff'&&isManager()?`<button type="button" class="live-btn ${m.is_active?'ghost':'secondary'} live-small-btn" data-staff-toggle="${e(m.user_id)}" data-staff-active="${m.is_active?'true':'false'}">${m.is_active?'Desativar':'Reativar'}</button>`:'—'}</td></tr>`).join('');
- const inviteForm=isManager()?panel('Convidar funcionário','Informe o e-mail pessoal do atendente. O link será válido por 48 horas.',`<form class="live-form live-config-form" id="inviteStaffForm"><label class="live-field">E-mail do funcionário <input type="email" name="email" autocomplete="off" required placeholder="funcionario@exemplo.com" maxlength="254"></label><div class="live-form-actions"><button type="submit" class="live-btn">Gerar convite</button></div></form>
- ${staffInviteLink?`<div class="live-invite-result"><b>Convite criado — copie e envie ao funcionário</b><div class="live-invite-tools"><input id="staffInviteURL" readonly value="${e(staffInviteLink)}" aria-label="Link do convite"><button type="button" class="live-btn secondary" id="copyStaffInvite">Copiar link</button></div><p>Compartilhe somente com o e-mail escolhido. O convite exige conta verificada e só funciona uma vez.</p></div>`:''}
- <p class="live-note" style="padding:0 20px 18px">O Velyo não envia o convite automaticamente. Copie o link e encaminhe ao funcionário por um canal de sua confiança.</p>`):'';
- return `${title('Acesso Vendas','Crie acessos individuais para a equipe e controle quem pode operar o Balcão.')}
- <div class="live-stats">${stat('Acessos ativos',fmt(roster.filter(m=>m.is_active).length),'Nesta empresa','purple')}${stat('Gestores',fmt(managers),'Proprietários e administradores','teal')}${stat('Atendentes',fmt(staff),'Contas de balcão ativas','orange')}${stat('Acesso protegido','Por e-mail','Sem compartilhar senha','rose')}</div>
- ${inviteForm}
- ${panel('Usuários e permissões','Você pode desativar e reativar os atendentes desta empresa.',table(['E-mail','Perfil','Situação','Ações'],rows))}
- ${panel('Portal de atendimento','Funcionários usam sua própria conta para pontuar compras e resgatar brindes',`<div class="content"><p>O funcionário recebe um convite, cria uma senha individual e confirma seu e-mail. Após entrar pelo link, o Velyo libera o Balcão somente para a empresa vinculada.</p><a class="live-btn" target="_blank" rel="noopener noreferrer" href="../balcao/">Abrir Balcão</a></div>`)}`;
+ const slug=activeTenant()?.slug||'';
+ const link=slug?new URL('../balcao/?loja='+encodeURIComponent(slug),window.location.href).href:'';
+ const configured=Boolean(counterPinStatus?.configured);
+ return `${title('Acesso Vendas','Uma única senha compartilhada para toda a equipe do balcão.')}
+ <div class="live-stats">
+ ${stat('Situação',configured?'Configurado':'Pendente','Senha do Balcão','purple')}
+ ${stat('Duração','12 horas','Por sessão autorizada','teal')}
+ ${stat('Senha compartilhada','6 dígitos','Somente números','orange')}
+ ${stat('Troca de senha','Imediata','Desconecta sessões anteriores','rose')}
+ </div>
+ ${panel('Senha única do Balcão','Só o proprietário ou administrador pode criar e alterar esta senha.',`<form id="counterPinForm" class="live-form live-config-form">
+ <label class="live-field">${configured?'Nova senha do Balcão':'Criar senha do Balcão'}
+ <input name="pin" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{6}" minlength="6" maxlength="6" required placeholder="6 números"></label>
+ <label class="live-field">Confirmar senha <input name="confirmation" type="password" inputmode="numeric" autocomplete="new-password" pattern="[0-9]{6}" minlength="6" maxlength="6" required placeholder="Repita a senha"></label>
+ <div class="live-form-actions"><button class="live-btn" type="submit">${configured?'Trocar senha':'Salvar senha'}</button></div>
+ <p class="live-note">A senha não fica visível depois de salvar. Ao alterá-la, todas as sessões ativas do Balcão são invalidadas.</p></form>`)}
+ ${panel('Link do Balcão desta empresa','Compartilhe este endereço com os atendentes, juntamente com a senha por um canal separado.',`<div class="content">
+ <div class="live-invite-tools"><input id="counterURL" readonly value="${e(link)}"><button type="button" id="copyCounterURL" class="live-btn secondary">Copiar link</button></div>
+ <p class="live-note">Qualquer funcionário com o link e a senha poderá pontuar compras e resgatar brindes, sem login individual.</p>
+ <a class="live-btn" href="${e(link)}" target="_blank" rel="noopener noreferrer">Abrir Balcão</a>
+ </div>`)}
+ ${panel('Segurança e controle','Regras de acesso compartilhado',`<div class="content"><p>Após cinco tentativas incorretas, o acesso é bloqueado por 15 minutos. As operações usam sessões temporárias e mantêm registro da sessão utilizada.</p><p>Como a senha é compartilhada, não é possível identificar individualmente qual atendente realizou uma operação. Troque a senha quando um funcionário deixar a equipe.</p></div>`)}`;
 }
 function whatsappBusiness(){
  return `${title('WhatsApp Business','Canal de comunicação com os clientes — configuração futura.')}
