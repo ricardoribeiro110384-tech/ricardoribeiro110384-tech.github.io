@@ -5,7 +5,7 @@ const br=s=>s?new Date(s).toLocaleDateString('pt-BR'):'—';
 const config=window.VELYO_CONFIG;
 let api=null, profiles=[], tenants=[], selected='', data=null, view='overview', busy=false;
 const slug=new URL(location.href).searchParams.get('loja')||'';
-try{api=new VelyoBackend(config)}catch{api=null}
+try{api=new VelyoBackend(config,{scope:'cliente'})}catch{api=null}
 function feedback(message){const node=$('#message');if(node){node.textContent=message;node.hidden=false}}
 function normalizePhone(v){const digits=String(v||'').replace(/\D/g,'');let full;if(digits.length===11)full='55'+digits;else full=digits;if(!/^\d{10,15}$/.test(full)||!full.startsWith('55'))throw Error('Informe celular brasileiro com DDD.');return '+'+full}
 function login(){
