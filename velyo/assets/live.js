@@ -286,7 +286,33 @@ function layout(){
  const page = ({dashboard, reports, customers, counter, rewards, program, movements, purchases, redemptions, salesAccess, whatsappBusiness})[allowedViews.has(view)?view:(PORTAL==='balcao'?'counter':'dashboard')];
  $('#app').innerHTML=`<div class="live-shell"><div class="live-scrim" id="scrim"></div><aside class="live-sidebar" id="sidebar"><div class="live-logo">velyo<span>.</span><small>${PORTAL==='balcao'?'ATENDIMENTO':'ADMINISTRAÇÃO'}</small></div><nav class="live-nav" aria-label="Menu principal">${nav}</nav><div class="live-bottom"><strong>Velyo · Gestão</strong>${PORTAL==='balcao'?'Área operacional. Relatórios e dados gerenciais não aparecem aqui.':'Painel exclusivo de gestores. Dados separados por estabelecimento.'}</div></aside><div class="live-main"><header class="live-topbar"><div class="live-row"><button class="live-mobile-menu" type="button" id="mobileMenu" aria-label="Abrir menu">☰</button><strong><span class="workspace-label">Workspace / </span>${e(activeTenant()?.name||'Empresa')}</strong></div><div class="right"><select id="tenantSelector" class="live-select" aria-label="Selecionar empresa">${tenants.map(t=>`<option value="${e(t.id)}" ${t.id===tenantId?'selected':''}>${e(t.name)}</option>`).join('')}</select><span class="email">${e(user?.email)}</span><button class="live-btn ghost" id="logout" type="button">Sair</button></div></header><div class="live-body">${page()}</div></div></div>`;
 }
+function counterPinLogin(){
+ const slug=e(counterLinkSlug||counterSession?.tenant_slug||'');
+ $('#app').innerHTML=`<div class="counter-entry"><div class="counter-entry-hero"><div class="live-counter-brand">velyo<span>.</span></div><div class="counter-entry-kicker">ATENDIMENTO</div><h1>Balcão de fidelidade</h1><p>Uma senha para toda a equipe. Registre compras, consulte pontos e entregue brindes com segurança.</p><div class="counter-entry-foot">A Administração continua protegida por uma conta individual.</div></div>
+ <main class="counter-entry-main"><div class="counter-entry-card"><span class="counter-entry-label">ACESSO COMPARTILHADO</span><h2>Entrar no Balcão</h2><p>Utilize o código da empresa e a senha definida pelo administrador.</p>
+ <form id="counterPinLoginForm" class="counter-entry-form">
+ <label class="live-field">Código da empresa<input name="slug" value="${slug}" required pattern="[a-z0-9-]{3,80}" autocomplete="off" placeholder="Ex.: minha-empresa" ${counterLinkSlug?'readonly':''}></label>
+ <label class="live-field">Senha do Balcão (6 dígitos)<input name="pin" type="password" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" minlength="6" autocomplete="off" required placeholder="••••••"></label>
+ <button type="submit" class="live-btn">Entrar no Balcão</button>
+ <div id="counterLoginFeedback" class="counter-login-feedback" aria-live="polite" role="status"></div>
+ </form><p class="live-note">A senha fica protegida no servidor. Cinco tentativas erradas bloqueiam temporariamente o acesso.</p></div></main></div>`;
+}
+async function loadCounter(){
+ if(!counterSession?.token)throw Error('Entre com a senha do Balcão.');
+ if(Date.parse(counterSession.expires_at)<=Date.now())throw Error('A sessão do Balcão venceu. Entre novamente.');
+ const rewards=await api.counterRewards(counterSession.token);
+ const tenant={id:counterSession.tenant_id,name:counterSession.tenant_name,slug:counterSession.tenant_slug,is_active:true};
+ tenantId=tenant.id;tenants=[tenant];membership={role:'staff',is_active:true,tenant_id:tenantId};
+ user={email:'Acesso compartilhado'};bundle={loyalty_rewards:Array.isArray(rewards)?rewards:[]};
+ show();
+}
+function clearCounterSession(){
+ counterSession=null;
+ try{window.sessionStorage.removeItem(COUNTER_SESSION_KEY);}catch{}
+ user=null;tenants=[];tenantId='';membership=null;bundle=null;pending.clear();
+}
 function login(){
+ if(PORTAL==='balcao')return counterPinLogin();
  let html=renderAuth({configured:isConfigReady(),mode:authMode,email:authEmail,area:PORTAL});
  if(PORTAL==='balcao'&&invitationToken&&authMode==='login'){
   const inviteHtml=`<div class="staff-invite-login"><b>Você recebeu um convite para o Balcão</b><p>Se já possui uma conta Velyo, entre com o e-mail convidado acima. Caso contrário, cadastre sua senha individual:</p>
@@ -324,6 +350,10 @@ function accessDenied(){
 }
 function show(){
  if(!isConfigReady())return login();
+ if(PORTAL==='balcao'){
+  if(!counterSession||!bundle)return counterPinLogin();
+  return layout();
+ }
  if(authMode==='new-password')return login();
  if(!user)return login();
  if(!tenants.length||!membership)return accessDenied();
@@ -331,6 +361,7 @@ function show(){
  layout();
 }
 async function load(){
+ if(PORTAL==='balcao')return loadCounter();
  user=await api.getUser();
  // As empresas são enumeradas por RLS; a seleção é filtrada também pela função do perfil.
  const allTenants=await api.listTenants();
@@ -344,14 +375,19 @@ async function load(){
  if(tenants.length){
   bundle=PORTAL==='balcao'?await api.bundleForCounter(tenantId):await api.bundle(tenantId);
   teamMembers=PORTAL==='admin' && isManager()?await api.listTeam(tenantId):[];
- }else{bundle=null;teamMembers=[];}
+  counterPinStatus=PORTAL==='admin'&&isManager()?await api.counterStatus(tenantId):{configured:false};
+ }else{bundle=null;teamMembers=[];counterPinStatus={configured:false};}
  show();
 }
 async function run(task){if(busy)return;busy=true;try{await task();}catch(err){toast(err.message||'Falha na operação.','error')}finally{busy=false;}}
 function requestFor(kind,fields){const stamp=JSON.stringify(fields);let item=pending.get(kind);if(!item||item.stamp!==stamp){item={id:uuid(),stamp};pending.set(kind,item)}return item.id;}
 async function reload(){
- bundle=PORTAL==='balcao'?await api.bundleForCounter(tenantId):await api.bundle(tenantId);
- if(PORTAL==='admin'&&isManager())teamMembers=await api.listTeam(tenantId);
+ if(PORTAL==='balcao')return loadCounter();
+ bundle=await api.bundle(tenantId);
+ if(isManager()){
+  teamMembers=await api.listTeam(tenantId);
+  counterPinStatus=await api.counterStatus(tenantId);
+ }
  show();
 }
 async function onAdminClick(ev){
@@ -625,6 +661,13 @@ async function bootstrap(){
      window.history.replaceState(null,'',window.location.pathname+window.location.search);
      authMode='new-password';show();return;
    }}catch(err){window.history.replaceState(null,'',window.location.pathname+window.location.search);authMode='login';show();showAuthFeedback(err.message,'error');return;}
+  }
+  if(PORTAL==='balcao'){
+   if(counterSession){
+    try{await loadCounter();}
+    catch{clearCounterSession();show();}
+   }else show();
+   return;
   }
   if(api.session){
    if(invitationToken){
