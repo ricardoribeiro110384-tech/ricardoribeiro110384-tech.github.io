@@ -10,3 +10,18 @@
 .customer-reward-empty{font-size:58px;color:#6659db}
 .customer-reward-card h3{overflow-wrap:anywhere}
 @media(max-width:640px){.customer-reward-photo{height:150px}}
+
+/* Velyo Cliente: primeiro acesso verificado, três etapas e formulários mobile */
+.customer-auth-form{display:grid;gap:14px}
+.customer-auth-form .field{display:grid;gap:7px}
+.customer-auth-form .field input{width:100%;min-height:46px}
+.auth-customer-title h2{margin-bottom:8px}
+.auth-customer-title p{line-height:1.6}
+.auth-step-label{color:#6759ed;font-size:10px;letter-spacing:1.5px;font-weight:850;margin-bottom:12px}
+.customer-auth-switch{border-top:1px solid #edf0f6;margin-top:20px;padding-top:18px;display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:13px;flex-wrap:wrap;color:#61708b}
+.customer-text-link,.customer-back{border:none;background:none;color:#6253da;text-decoration:underline;font-size:13px;font-weight:750;cursor:pointer;padding:7px 0}
+.customer-back{display:block;margin:16px 0 10px}
+.auth-customer-help{font-size:12px!important;line-height:1.6!important;color:#77849a!important;margin:12px 0}
+.customer-auth-feedback{font-size:12px;line-height:1.65;color:#b63c4b;border-radius:10px;background:#fff2f3;padding:11px 12px;margin-top:14px}
+.customer-auth-form button[disabled]{opacity:.58;cursor:progress}
+@media(max-width:640px){.customer-auth-switch{align-items:flex-start;flex-direction:column}.customer-auth-form .btn{width:100%}}
