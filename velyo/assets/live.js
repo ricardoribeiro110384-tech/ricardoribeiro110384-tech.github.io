@@ -197,7 +197,7 @@ document.addEventListener('submit',async ev=>{
 async function bootstrap(){
  if(!isConfigReady()){show();return;}
  try {
-  api=new VelyoBackend(window.VELYO_CONFIG);
+  api=new VelyoBackend(window.VELYO_CONFIG,{scope:PORTAL});
   if(window.location.hash){
    try {if(api.loadRecoveryTokens(window.location.hash)){
      window.history.replaceState(null,'',window.location.pathname+window.location.search);
