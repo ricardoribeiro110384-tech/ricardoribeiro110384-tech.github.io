@@ -1,5 +1,5 @@
-// Chave PUBLICÁVEL (não é service_role). Projeto exclusivo Velyo, homologação.
+// Chave PUBLICÁVEL (não é service_role). Projeto Supabase compartilhado, com tabelas e RLS exclusivas do Velyo.
 window.VELYO_CONFIG = {
-  supabaseUrl:'https://lubzabolwkunzsucmwuu.supabase.co',
-  publishableKey:'sb_publishable_V-6hzsGckWQvQsYkH1O4Tw_-VHsJvHw'
+  supabaseUrl:'https://khmowqmmwdrornfgrbpi.supabase.co',
+  publishableKey:'sb_publishable_oUgMPwAr5mUSeW3Pxgl6DA_p_-7CwZx'
 };
