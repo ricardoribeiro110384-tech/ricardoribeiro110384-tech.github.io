@@ -19,7 +19,10 @@
 <header class="top"><div class="tabline"><button class="hamburger" id="menu" aria-label="Abrir menu">☰</button><div><h2>Atendente virtual · Drogaria Rocha</h2><div class="subtitle">IA generativa local · atendimento supervisionado</div></div></div><div class="modelpill" id="pill">● IA não iniciada</div></header>
 <section class="page chat open" id="page-chat">
 <div class="scroll" id="scroll"><div class="inner" id="messages"></div></div>
-<div class="composer"><div id="chatNotice" role="status" aria-live="polite" style="max-width:860px;margin:0 auto 11px;color:#b9d4ee;background:#142c44;border:1px solid #34536d;border-radius:10px;padding:10px 13px;font-size:12px">A IA ainda não foi iniciada. Ao enviar sua primeira mensagem, o navegador começará a carregar o modelo gratuito e mostrará o progresso aqui.</div><form id="sendForm"><textarea id="prompt" required rows="2" placeholder="Digite a mensagem fictícia de um cliente…"></textarea><button id="send" class="primary" type="submit">Ativar IA e enviar ↗</button></form><small>Sem envio automático. Revise cada resposta antes de usar com clientes. Enter para enviar, Shift+Enter para quebrar linha.</small></div>
+<div class="composer"><div id="chatNotice" role="status" aria-live="polite" style="max-width:860px;margin:0 auto 11px;color:#b9d4ee;background:#142c44;border:1px solid #34536d;border-radius:10px;padding:10px 13px;font-size:12px">A IA ainda não foi iniciada. Ao enviar sua primeira mensagem, o navegador começará a carregar o modelo gratuito e mostrará o progresso aqui.</div><form id="sendForm"><textarea id="prompt" required rows="2" placeholder="Digite a mensagem fictícia de um cliente…"></textarea><button id="send" class="primary" type="submit">Ativar IA e enviar ↗</button></form><div style="max-width:860px;margin:10px auto 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+<button class="smallbtn" type="button" onclick="window.MINHAIA_DIAGNOSTICO()">Verificar funcionamento</button>
+<span id="quickCheck" style="font-size:12px;color:#a8c7df"></span>
+</div><small>Sem envio automático. Revise cada resposta antes de usar com clientes. Enter para enviar, Shift+Enter para quebrar linha.</small></div>
 </section>
 <section class="page panelpage" id="page-treinar"><div class="content">
 <div style="color:#8bd2ff;font-size:11px;font-weight:800;letter-spacing:1.5px">CONFIGURAÇÃO DA IA</div><h1>Treinamento e conhecimento</h1>
@@ -41,6 +44,23 @@
 <div class="card"><h3>5. Privacidade e backup</h3><p class="muted">Salve um backup se quiser mudar de dispositivo. As regras e conversas ficam no navegador; apagar os dados do Chrome pode excluí-las.</p><div class="steps"><button class="outline" id="backup">Exportar backup</button><button class="outline" id="resetSession">Limpar conversa atual</button></div></div>
 </div></section>
 </main></div>
+<script>
+window.MINHAIA_APP_STARTED=false;
+window.MINHAIA_DIAGNOSTICO=function(){
+ const el=document.getElementById('quickCheck'),chat=document.getElementById('chatNotice');
+ const parts=['JavaScript: funcionando','Web Workers: '+(typeof Worker!=='undefined'?'disponíveis':'indisponíveis'),'Aplicativo: '+(window.MINHAIA_APP_STARTED?'iniciado':'falhou ao iniciar'),'WebGPU: '+(navigator.gpu?'disponível para teste':'não disponível')];
+ el.textContent=parts.join(' · ');
+ if(!window.MINHAIA_APP_STARTED){chat.textContent='Falha na inicialização da página. Use o botão de diagnóstico e envie uma captura do resultado.';}
+};
+window.addEventListener('error',function(e){
+ const el=document.getElementById('chatNotice');
+ if(el)el.textContent='ERRO DE EXECUÇÃO: '+String(e.message||'erro desconhecido').slice(0,220);
+});
+window.addEventListener('unhandledrejection',function(e){
+ const el=document.getElementById('chatNotice');
+ if(el)el.textContent='Falha na inicialização: '+String(e.reason?.message||e.reason||'promessa rejeitada').slice(0,220);
+});
+</script>
 <script src="treinamento-padrao.js"></script>
 <script>
 (function(){'use strict';
@@ -49,7 +69,7 @@ let s;try{s=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!s||!Array.isArray(s.knowledge))s={knowledge:[],chats:[],selected:null,settings:{}};
 s.whatsapp={company:'Drogaria Rocha',tone:'cordial',facts:'',policies:'Não inventar estoque, preços ou prazos. Encaminhar dúvidas sobre medicamentos ao farmacêutico responsável.',...s.whatsapp};
 s.agentSessions=Array.isArray(s.agentSessions)?s.agentSessions:[];
-let active=s.agentSessions[0]?.id||null,ready=false,loading=false,pending=false,worker=null,requestNumber=0,activeRequest=0,currentModel='leve',lastAnswer='',queuedQuestion=null;
+window.MINHAIA_APP_STARTED=true;let active=s.agentSessions[0]?.id||null,ready=false,loading=false,pending=false,worker=null,requestNumber=0,activeRequest=0,currentModel='leve',lastAnswer='',queuedQuestion=null,loadWatchdog=null;
 const SAFE_PRICE='Para informar o preço e a disponibilidade corretamente, nossa equipe precisa consultar os dados atualizados. Quer que eu encaminhe sua consulta?';
 const SAFE_ORDER='Posso encaminhar seu pedido à equipe para conferência e finalização. A confirmação de preço, estoque e entrega será feita por um atendente.';
 const SAFE_CLINICAL='Para sua segurança, essa orientação precisa ser feita pelo farmacêutico ou outro profissional de saúde responsável. Posso encaminhar sua dúvida ao farmacêutico? Em caso de sintomas graves, procure atendimento de urgência.';
@@ -81,20 +101,20 @@ $('diagnose').onclick=diag;
 $('load').onclick=async()=>{
  if(loading||ready)return;
  if(!window.Worker){show('Este navegador não oferece suporte a Web Workers.');return}
- let hasGPU=false;try{hasGPU=!!(navigator.gpu&&await navigator.gpu.requestAdapter())}catch(e){}
+ let hasGPU=false;show('Verificando a compatibilidade do Chromebook…');try{hasGPU=!!(navigator.gpu&&await Promise.race([navigator.gpu.requestAdapter(),new Promise(resolve=>setTimeout(()=>resolve(null),4000))]))}catch(e){}
  if(!hasGPU&&$('device').value!=='wasm'){$('device').value='wasm';show('WebGPU indisponível. Tentando executar na CPU do aparelho; o processamento poderá ser lento.')}
  if($('model').value==='qualidade'&&!hasGPU){$('model').value='leve';show('Modelo de 1,5B exige GPU aqui. Usando o modelo leve na CPU.')}
- loading=true;currentModel=$('model').value;setReady(false);show('Iniciando a IA local e preparando o download…');
+ loading=true;currentModel=$('model').value;setReady(false);show('Preparando o motor da IA. O download será informado aqui.');if(loadWatchdog)clearTimeout(loadWatchdog);loadWatchdog=setTimeout(()=>{if(loading){loading=false;queuedQuestion=null;worker?.terminate();worker=null;setReady(false);show('O carregamento excedeu o tempo de segurança. Este Chromebook pode não ter memória suficiente ou o download foi bloqueado. Clique em Verificar funcionamento para obter um diagnóstico.')}},180000);
  try{worker=new Worker('./atendente-worker.js',{type:'module'});
  worker.onmessage=(e)=>{const m=e.data||{};
   if(m.type==='status')show(m.message);
   if(m.type==='progress')show('Baixando modelo: '+m.progress+'%'+(m.file?' · '+m.file.split('/').pop():'')+'.\nO tamanho do download varia conforme a configuração.');
-  if(m.type==='ready'){loading=false;setReady(true);show('IA local carregada em '+(m.device==='webgpu'?'GPU':'CPU')+'. As mensagens agora serão processadas pelo modelo.');navigate('chat');if(queuedQuestion){$('prompt').value=queuedQuestion;queuedQuestion=null;$('sendForm').requestSubmit()}}
+  if(m.type==='ready'){clearTimeout(loadWatchdog);loadWatchdog=null;loading=false;setReady(true);show('IA local carregada em '+(m.device==='webgpu'?'GPU':'CPU')+'. As mensagens agora serão processadas pelo modelo.');navigate('chat');if(queuedQuestion){$('prompt').value=queuedQuestion;queuedQuestion=null;$('sendForm').requestSubmit()}}
   if(m.type==='generated')onGenerated(m);
-  if(m.type==='error'){if(m.phase==='load'){loading=false;setReady(false);worker?.terminate();worker=null;show('Não foi possível ativar a IA neste aparelho: '+m.message+'. A pergunta continua no campo. Você pode tentar novamente ou verificar o dispositivo em Ensinar e configurar.');queuedQuestion=null}else onError(m)}
- };worker.onerror=(err)=>{if(loading){loading=false;setReady(false);queuedQuestion=null;worker?.terminate();worker=null;show('O navegador interrompeu o carregamento. Sua mensagem ainda está no campo; confira a memória e tente o modelo leve na CPU.')}else if(pending)onError({requestId:activeRequest,message:err.message||'Falha no processamento.'})};
+  if(m.type==='error'){if(m.phase==='load'){clearTimeout(loadWatchdog);loadWatchdog=null;loading=false;setReady(false);worker?.terminate();worker=null;show('Não foi possível ativar a IA neste aparelho: '+m.message+'. A pergunta continua no campo. Você pode tentar novamente ou verificar o dispositivo em Ensinar e configurar.');queuedQuestion=null}else onError(m)}
+ };worker.onerror=(err)=>{if(loading){clearTimeout(loadWatchdog);loadWatchdog=null;loading=false;setReady(false);queuedQuestion=null;worker?.terminate();worker=null;show('O navegador interrompeu o carregamento. Sua mensagem ainda está no campo; confira a memória e tente o modelo leve na CPU.')}else if(pending)onError({requestId:activeRequest,message:err.message||'Falha no processamento.'})};
  worker.postMessage({type:'load',model:currentModel,device:$('device').value});
- }catch(e){loading=false;setReady(false);show('Não foi possível iniciar a IA: '+e.message)}
+ }catch(e){clearTimeout(loadWatchdog);loadWatchdog=null;loading=false;setReady(false);show('Não foi possível iniciar a IA: '+e.message)}
 };
 function clinical(q){let t=norm(q);
  return /\b(dose|dosagem|posologia|quantas gotas|quantos comprimidos|posso tomar|pode tomar|como tomar|posso usar|misturar remedios|misturar medicamentos|tratamento para|o que tomar|qual remedio|qual medicamento|efeito colateral|reacao adversa|falta de ar|dor no peito|desmaio|suicid|overdose|intoxicacao|gravida|crianca pode)\b/.test(t)}
@@ -147,6 +167,7 @@ $('menu').onclick=()=>$('sidebar').classList.add('show');$('overlay').onclick=()
 document.querySelectorAll('#sidebar a[href^="#"]').forEach(a=>a.onclick=e=>{e.preventDefault();navigate(a.getAttribute('href').slice(1))});
 if(!active)makeSession();else{drawSessions();drawChat()}
 fillForm();
+$('quickCheck').textContent='Página iniciada. O primeiro envio ativa a IA local.';
 window.addEventListener('beforeunload',()=>{worker?.terminate()});
 })();
 </script>
