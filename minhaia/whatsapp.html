@@ -15,7 +15,7 @@
 </aside>
 <main>
 <div class="header"><div><div class="eyebrow">LABORATÓRIO DE RESPOSTAS</div><h1>Ensine, teste, corrija.</h1><p class="muted">O sistema só sugere respostas que você cadastrou ou uma mensagem segura de encaminhamento.</p></div><span class="tag">100% sem API paga</span></div>
-<div class="stats"><div class="stat"><b id="trained">0</b><span>Respostas aprovadas</span></div><div class="stat"><b id="tested">0</b><span>Simulações nesta sessão</span></div><div class="stat"><b>Manual</b><span>Envio pelo WhatsApp</span></div></div>
+<div class="actions" style="margin:14px 0"><button id="backup" type="button" class="secondary">↓ Exportar backup</button><button id="importBtn" type="button" class="secondary">↑ Restaurar backup</button><input id="backupInput" type="file" accept=".json" hidden></div><div class="stats"><div class="stat"><b id="trained">0</b><span>Respostas aprovadas</span></div><div class="stat"><b id="tested">0</b><span>Simulações nesta sessão</span></div><div class="stat"><b>Manual</b><span>Envio pelo WhatsApp</span></div></div>
 <div class="grid">
 <div class="card"><div class="smalltitle">2. Ensinar uma resposta</div><form id="train"><div class="field"><label for="question">O que o cliente pergunta?</label><textarea id="question" placeholder="Ex.: Vocês fazem entrega?" required></textarea></div><div class="field"><label for="answer">Qual resposta você aprova?</label><textarea id="answer" rows="5" placeholder="Digite a resposta correta, com as informações confirmadas..." required></textarea></div><button class="primary">✳ Ensinar à MinhaIA</button></form>
 <p class="fine">Cadastre de 20 a 30 situações frequentes para começar: horário, endereço, entrega, pagamentos, encomendas, valores e atendimento por farmacêutico.</p></div>
@@ -60,6 +60,10 @@ lastReply=msg;$('outgoing').textContent=msg;$('replyStatus').textContent=subtitl
 };
 $('copy').onclick=async()=>{if(!lastReply){toast('Simule uma conversa primeiro.');return}try{await navigator.clipboard.writeText(lastReply);toast('Resposta copiada. Revise antes de enviar.')}catch(e){let a=element('textarea');a.value=lastReply;document.body.append(a);a.select();let ok=document.execCommand('copy');a.remove();toast(ok?'Resposta copiada.':'Não foi possível copiar automaticamente.')}};
 $('correct').onclick=()=>{if(!lastQuestion){toast('Simule uma conversa primeiro.');return}$('question').value=lastQuestion;$('answer').value=lastReply;$('answer').focus();document.querySelector('main').scrollTo({top:0,behavior:'smooth'});toast('Edite a resposta e salve para ensinar a IA.')};
+
+$('backup').onclick=()=>{const blob=new Blob([JSON.stringify({type:'MinhaIA',version:1,data:state},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=element('a');a.href=url;a.download='minhaia-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+$('importBtn').onclick=()=>$('backupInput').click();
+$('backupInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{if(f.size>5000000)throw Error('Backup maior que 5 MB.');let pack=JSON.parse(await f.text());if(pack.type!=='MinhaIA'||!Array.isArray(pack.data?.knowledge)||!Array.isArray(pack.data?.chats))throw Error('Backup inválido');if(confirm('Substituir os conhecimentos deste navegador pelo backup?')){state=pack.data;state.whatsapp={...DEFAULT,...state.whatsapp};save();setConfig();draw();toast('Backup restaurado.')}}catch(err){toast(String(err.message||err))}finally{e.target.value=''}};
 setConfig();draw();
 })();
 </script></body></html>
