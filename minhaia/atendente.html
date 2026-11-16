@@ -50,7 +50,7 @@ if(!s||!Array.isArray(s.knowledge))s={knowledge:[],chats:[],selected:null,settin
 s.whatsapp={company:'Drogaria Rocha',tone:'cordial',facts:'',policies:'Não inventar estoque, preços ou prazos. Encaminhar dúvidas sobre medicamentos ao farmacêutico responsável.',...s.whatsapp};
 s.agentSessions=Array.isArray(s.agentSessions)?s.agentSessions:[];
 let active=s.agentSessions[0]?.id||null,ready=false,loading=false,pending=false,worker=null,requestNumber=0,activeRequest=0,currentModel='leve',lastAnswer='';
-const SAFE_PRICE='Vou pedir à equipe da Drogaria Rocha para confirmar o valor atualizado e a disponibilidade. Qual produto e apresentação você procura?';
+const SAFE_PRICE='Para informar o preço e a disponibilidade corretamente, nossa equipe precisa consultar os dados atualizados. Quer que eu encaminhe sua consulta?';
 const SAFE_ORDER='Posso encaminhar seu pedido à equipe para conferência e finalização. A confirmação de preço, estoque e entrega será feita por um atendente.';
 const SAFE_CLINICAL='Para sua segurança, essa orientação precisa ser feita pelo farmacêutico ou outro profissional de saúde responsável. Posso encaminhar sua dúvida ao farmacêutico? Em caso de sintomas graves, procure atendimento de urgência.';
 function norm(t){return String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()}
@@ -118,7 +118,7 @@ function validateReply(q,response){let text=String(response||'').trim().replace(
  if(!text)return 'Não consegui formular uma resposta confiável. Um atendente humano deve assumir.';
  if(clinical(q))return SAFE_CLINICAL;
  if(checkout(q))return SAFE_ORDER;
- if(price(q)&&!s.whatsapp.facts.trim())return SAFE_PRICE;
+ if(price(q))return SAFE_PRICE;
  if(/\bR\$\s*\d+(?:[.,]\d+)?/.test(text))return 'Para informar valores corretos, preciso que nossa equipe confirme o preço atualizado desse produto.';
  if(/\b(temos em estoque|disponivel em estoque|ja reservei|pedido confirmado|entrega em [0-9]+ minutos)\b/i.test(norm(text))&&!s.whatsapp.facts.trim())return 'Vou solicitar a confirmação da disponibilidade e das condições com nossa equipe, tudo bem?';
  return text.slice(0,1250)}
@@ -128,7 +128,7 @@ function onError(m){if(m.requestId&&m.requestId!==activeRequest)return;const c=s
 $('sendForm').onsubmit=(e)=>{e.preventDefault();if(!ready||pending)return;let q=$('prompt').value.trim();if(!q)return;const c=currentSession();c.messages.push({role:'user',text:q,created:Date.now()});c.messages=c.messages.slice(-30);if(c.title==='Nova conversa')c.title=q.slice(0,55);$('prompt').value='';drawSessions();save();
  if(clinical(q)){addReply(c,SAFE_CLINICAL,'handoff');return}
  if(checkout(q)){addReply(c,SAFE_ORDER,'handoff');return}
- if(price(q)&&!s.whatsapp.facts.trim()){addReply(c,SAFE_PRICE,'handoff');return}
+ if(price(q)){addReply(c,SAFE_PRICE,'handoff');return}
  let history=c.messages.slice(-9).map(x=>({role:x.role,content:x.text})),system=promptFor(q);
  pending=true;activeRequest=++requestNumber;$('send').disabled=true;drawChat();
  try{worker.postMessage({type:'generate',requestId:activeRequest,model:currentModel,messages:[{role:'system',content:system},...history]})}catch(err){onError({requestId:activeRequest,message:err.message})}
