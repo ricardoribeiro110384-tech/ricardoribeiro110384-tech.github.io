@@ -69,7 +69,7 @@ let s;try{s=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!s||!Array.isArray(s.knowledge))s={knowledge:[],chats:[],selected:null,settings:{}};
 s.whatsapp={company:'Drogaria Rocha',tone:'cordial',facts:'',policies:'Não inventar estoque, preços ou prazos. Encaminhar dúvidas sobre medicamentos ao farmacêutico responsável.',...s.whatsapp};
 s.agentSessions=Array.isArray(s.agentSessions)?s.agentSessions:[];
-window.MINHAIA_APP_STARTED=true;let active=s.agentSessions[0]?.id||null,ready=false,loading=false,pending=false,worker=null,requestNumber=0,activeRequest=0,currentModel='leve',lastAnswer='',queuedQuestion=null,loadWatchdog=null;
+let active=s.agentSessions[0]?.id||null,ready=false,loading=false,pending=false,worker=null,requestNumber=0,activeRequest=0,currentModel='leve',lastAnswer='',queuedQuestion=null,loadWatchdog=null;
 const SAFE_PRICE='Para informar o preço e a disponibilidade corretamente, nossa equipe precisa consultar os dados atualizados. Quer que eu encaminhe sua consulta?';
 const SAFE_ORDER='Posso encaminhar seu pedido à equipe para conferência e finalização. A confirmação de preço, estoque e entrega será feita por um atendente.';
 const SAFE_CLINICAL='Para sua segurança, essa orientação precisa ser feita pelo farmacêutico ou outro profissional de saúde responsável. Posso encaminhar sua dúvida ao farmacêutico? Em caso de sintomas graves, procure atendimento de urgência.';
@@ -168,6 +168,7 @@ document.querySelectorAll('#sidebar a[href^="#"]').forEach(a=>a.onclick=e=>{e.pr
 if(!active)makeSession();else{drawSessions();drawChat()}
 fillForm();
 $('quickCheck').textContent='Página iniciada. O primeiro envio ativa a IA local.';
+window.MINHAIA_APP_STARTED=true;
 window.addEventListener('beforeunload',()=>{worker?.terminate()});
 })();
 </script>
