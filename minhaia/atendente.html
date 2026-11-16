@@ -97,7 +97,7 @@ $('load').onclick=async()=>{
  }catch(e){loading=false;setReady(false);show('Não foi possível iniciar a IA: '+e.message)}
 };
 function clinical(q){let t=norm(q);
- return /\b(dosagem|qual dose|quantas gotas|quantos comprimidos|posso tomar|posso usar|misturar remedios|misturar medicamentos|tratamento para|o que tomar|qual remedio|qual medicamento|efeito colateral|reacao adversa|falta de ar|dor no peito|desmaio|suicid|overdose|intoxicacao|gravida pode tomar|crianca pode tomar)\b/.test(t)}
+ return /\b(dose|dosagem|posologia|quantas gotas|quantos comprimidos|posso tomar|pode tomar|como tomar|posso usar|misturar remedios|misturar medicamentos|tratamento para|o que tomar|qual remedio|qual medicamento|efeito colateral|reacao adversa|falta de ar|dor no peito|desmaio|suicid|overdose|intoxicacao|gravida|crianca pode)\b/.test(t)}
 function checkout(q){return /\b(finalizar pedido|confirma meu pedido|fazer pedido|fechar compra|pagar agora|pedido confirmado|reservar|meu endereco)\b/.test(norm(q))}
 function price(q){return /\b(quanto custa|qual o preco|quanto e|valor desse|valor do|esta em estoque|tem em estoque|disponivel para entrega)\b/.test(norm(q))}
 function context(q){let arr=s.knowledge.filter(x=>x.kind==='whatsapp').map(k=>({k,v:similarities(q,k.question||k.title)})).filter(x=>x.v>.12).sort((a,b)=>b.v-a.v).slice(0,4);
