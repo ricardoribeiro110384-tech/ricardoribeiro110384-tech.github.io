@@ -141,5 +141,6 @@ async function importJSON(file){if(!file)return;if(file.size>5000000){notify('Ar
 function resetDemo(){if(!confirm('Redefinir TODOS os dados locais? Você perderá qualquer lançamento próprio sem backup.'))return;db=seed();chat=[];let persisted=save();render();notify(persisted?'Demonstração redefinida.':'Demonstração redefinida nesta sessão; salvamento local bloqueado.')}
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();setMenu(false)}});render();
 </script>
+<script src="./pulso-financeiro-melhorias.js"></script>
 </body>
 </html>
