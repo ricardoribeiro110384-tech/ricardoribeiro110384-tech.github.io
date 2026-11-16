@@ -138,16 +138,16 @@ function answer(question){
  const q=normalize(question).slice(0,300),s=state(period(q));
  if(!q)return "Escreva uma pergunta sobre os seus registros financeiros.";
  if(/(apague|exclua|delete|transfira|registre|crie uma|pague por mim|faca um pagamento)/.test(q))return "Posso analisar e explicar os dados, mas não altero registros nem faço pagamentos pelo chat. Use Lançamentos, Gastos fixos, Cartões ou Cofrinhos para executar uma operação.";
- if(/(compar|evolu|versus|mes anterior|mes passado|diferenca entre meses)/.test(q)&&!/(gastei|receita|despesa|fatura|conta)/.test(q))return previousSummary(s);
+ if(/(compar|evolu|versus|diferenca entre meses|aumentou|diminuiu)/.test(q))return previousSummary(state(month));
  if(/(diagnostic|resum|analise|saude financ|como estao minhas financ)/.test(q))return diagnose(s);
  if(/(economiz|reduz|cortar|poupar|onde posso melhorar|conselho|recomend)/.test(q))return savings(s);
- if(/(fatur|cartao|parcel|credito|limite do cartao)/.test(q))return cardSummary(s,q);
+ if(/(fatura(?!mento)|cartao|parcel|credito|limite do cartao)/.test(q))return cardSummary(s,q);
  if(/(vencid|atrasad)/.test(q))return fixedSummary(s,true);
  if(/(fixo|venciment|pendente|contas a pagar|boleto)/.test(q))return fixedSummary(s,false);
  if(/(meta|cofrinh|objetivo|guardar dinheiro)/.test(q))return goalsSummary();
  const cat=parseCategory(q);
  if(/(orcament|limite|planej|quanto posso gastar)/.test(q))return cat?budgetDetail(s,cat):budgetSummary(s);
- if(/(compar|evolu|versus|mes anterior|mes passado)/.test(q))return previousSummary(state(month));
+ if(/(compar|evolu|versus)/.test(q))return previousSummary(state(month));
  if(cat&&/(gast|despes|quanto|total|categoria)/.test(q)){
    const value=number(s.rank.find(x=>normalize(x[0])===normalize(cat))?.[1]);
    return "Gastos registrados em "+cat+" em "+monthName(s.ym)+": "+money(value)+". "+(value?"Esse valor representa "+(s.out?Math.round(value/s.out*100):0)+"% das despesas registradas.":"Não encontrei despesas nessa categoria no período.")+"\n"+coverage(s);
