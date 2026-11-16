@@ -37,6 +37,7 @@
 <div class="panel"><h3>Backup</h3><p class="muted">Se mudar de aparelho, exporte o arquivo e importe-o no outro dispositivo. Esta versão ainda não sincroniza automaticamente.</p><div class="actions"><button class="outline" id="export">⬇ Exportar backup</button><label class="outline" for="restore" style="cursor:pointer">⬆ Restaurar backup</label><input type="file" id="restore" accept=".json" style="display:none"></div></div>
 <div class="panel"><h3>Privacidade</h3><p class="footer-note">Os conhecimentos são salvos no armazenamento local do navegador. Não inclua senhas, dados bancários ou informações confidenciais. O download do modelo usa serviços externos de distribuição de arquivos.</p><button class="outline" id="clear">Apagar todos os dados locais</button></div></div></section>
 </main></div><div id="toast" class="toast" role="status"></div>
+<script src="treinamento-padrao.js"></script>
 <script>
 (function(){
 'use strict';
@@ -76,7 +77,7 @@ $('agentName').value=s.settings.agentName;$('instructions').value=s.settings.ins
 $('settingsForm').onsubmit=e=>{e.preventDefault();s.settings={agentName:$('agentName').value.trim()||'MinhaIA',instructions:$('instructions').value.trim()};save();toast('Configurações salvas.')};
 $('export').onclick=()=>{let blob=new Blob([JSON.stringify({type:'MinhaIA',version:1,data:s},null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='minhaia-backup-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)};
 $('restore').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{if(f.size>5000000)throw Error('Arquivo grande demais');let d=JSON.parse(await f.text());if(d.type!=='MinhaIA'||!Array.isArray(d.data?.knowledge)||!Array.isArray(d.data?.chats))throw Error('Backup inválido');if(confirm('Substituir os dados deste navegador pelos do backup?')){s=d.data;s.settings={...defaults,...s.settings};save();sidebar();page('chat');toast('Backup restaurado.')}}catch(err){toast(err.message||'Falha ao importar')}finally{e.target.value=''}};
-$('clear').onclick=()=>{if(confirm('Excluir todos os dados da MinhaIA neste navegador?')){localStorage.removeItem(KEY);s={knowledge:[],chats:[],selected:null,settings:{...defaults}};save();sidebar();page('chat');toast('Dados locais apagados.')}};
+$('clear').onclick=()=>{if(confirm('Excluir todos os dados da MinhaIA neste navegador?')){localStorage.removeItem(KEY);s={knowledge:[],chats:[],selected:null,settings:{...defaults},installedTraining:window.MINHAIA_TRAINING_CATALOG?[window.MINHAIA_TRAINING_CATALOG.version]:[]};save();sidebar();page('chat');toast('Dados locais apagados.')}};
 sidebar();renderChat();
 })();
 </script></body></html>
