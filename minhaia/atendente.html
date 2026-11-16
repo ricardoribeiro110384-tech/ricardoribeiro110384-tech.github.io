@@ -19,7 +19,7 @@
 <header class="top"><div class="tabline"><button class="hamburger" id="menu" aria-label="Abrir menu">☰</button><div><h2>Atendente virtual · Drogaria Rocha</h2><div class="subtitle">IA generativa local · atendimento supervisionado</div></div></div><div class="modelpill" id="pill">● IA não iniciada</div></header>
 <section class="page chat open" id="page-chat">
 <div class="scroll" id="scroll"><div class="inner" id="messages"></div></div>
-<div class="composer"><form id="sendForm"><textarea id="prompt" required rows="2" placeholder="Digite a mensagem fictícia de um cliente…"></textarea><button id="send" class="primary" type="submit" disabled>Enviar ↗</button></form><small>Sem envio automático. Revise cada resposta antes de usar com clientes. Enter para enviar, Shift+Enter para quebrar linha.</small></div>
+<div class="composer"><div id="chatNotice" role="status" aria-live="polite" style="max-width:860px;margin:0 auto 11px;color:#b9d4ee;background:#142c44;border:1px solid #34536d;border-radius:10px;padding:10px 13px;font-size:12px">A IA ainda não foi iniciada. Ao enviar sua primeira mensagem, o navegador começará a carregar o modelo gratuito e mostrará o progresso aqui.</div><form id="sendForm"><textarea id="prompt" required rows="2" placeholder="Digite a mensagem fictícia de um cliente…"></textarea><button id="send" class="primary" type="submit">Ativar IA e enviar ↗</button></form><small>Sem envio automático. Revise cada resposta antes de usar com clientes. Enter para enviar, Shift+Enter para quebrar linha.</small></div>
 </section>
 <section class="page panelpage" id="page-treinar"><div class="content">
 <div style="color:#8bd2ff;font-size:11px;font-weight:800;letter-spacing:1.5px">CONFIGURAÇÃO DA IA</div><h1>Treinamento e conhecimento</h1>
@@ -49,7 +49,7 @@ let s;try{s=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 if(!s||!Array.isArray(s.knowledge))s={knowledge:[],chats:[],selected:null,settings:{}};
 s.whatsapp={company:'Drogaria Rocha',tone:'cordial',facts:'',policies:'Não inventar estoque, preços ou prazos. Encaminhar dúvidas sobre medicamentos ao farmacêutico responsável.',...s.whatsapp};
 s.agentSessions=Array.isArray(s.agentSessions)?s.agentSessions:[];
-let active=s.agentSessions[0]?.id||null,ready=false,loading=false,pending=false,worker=null,requestNumber=0,activeRequest=0,currentModel='leve',lastAnswer='';
+let active=s.agentSessions[0]?.id||null,ready=false,loading=false,pending=false,worker=null,requestNumber=0,activeRequest=0,currentModel='leve',lastAnswer='',queuedQuestion=null;
 const SAFE_PRICE='Para informar o preço e a disponibilidade corretamente, nossa equipe precisa consultar os dados atualizados. Quer que eu encaminhe sua consulta?';
 const SAFE_ORDER='Posso encaminhar seu pedido à equipe para conferência e finalização. A confirmação de preço, estoque e entrega será feita por um atendente.';
 const SAFE_CLINICAL='Para sua segurança, essa orientação precisa ser feita pelo farmacêutico ou outro profissional de saúde responsável. Posso encaminhar sua dúvida ao farmacêutico? Em caso de sintomas graves, procure atendimento de urgência.';
@@ -72,27 +72,27 @@ function drawChat(){let root=$('messages');root.replaceChildren();const c=sessio
  opts.forEach((x,i)=>{let b=elem('button','',x);b.onclick=()=>{if(!ready)navigate('treinar');else{$('prompt').value=x;$('sendForm').requestSubmit()}};row.append(b)});w.append(icon,h,p,row);root.append(w);return}
  c.messages.forEach((m,i)=>{let line=elem('div','entry '+(m.role==='user'?'user':'')),av=elem('div','avatar',m.role==='user'?'EU':'✳'),body=elem('div','message');body.append(elem('div','meta',m.role==='user'?'Cliente · teste':m.type==='handoff'?'Encaminhamento necessário':'Sugestão da MinhaIA · revisar'),elem('div','',m.text));
  if(m.role==='assistant'&&!m.loading){let bar=elem('div','msgactions');let copy=elem('button','','Copiar resposta');copy.onclick=()=>copyText(m.text);let edit=elem('button','','Corrigir e ensinar');edit.onclick=()=>{let prev=c.messages.slice(0,i).reverse().find(x=>x.role==='user');$('teachQ').value=prev?.text||'';$('teachA').value=m.text;navigate('treinar');$('teachA').focus();$('teachA').scrollIntoView({block:'center',behavior:'smooth'})};bar.append(copy,edit);body.append(bar)}
- line.append(av,body);root.append(line)});scrollDown()
+ line.append(av,body);root.append(line)});if(pending){let line=elem('div','entry'),av=elem('div','avatar','✳'),bubble=elem('div','message','A IA está escrevendo uma resposta…');line.append(av,bubble);root.append(line)}scrollDown()
 }
-function show(message){$('modelDetail').textContent=message}
-function setReady(v){ready=v;$('send').disabled=!v;$('pill').textContent=v?'● IA local ativa':loading?'◌ Carregando IA':'● IA não iniciada';$('load').disabled=loading||v;$('model').disabled=loading||v;$('device').disabled=loading||v;drawChat()}
+function show(message){$('modelDetail').textContent=message;$('chatNotice').textContent=message}
+function setReady(v){ready=v;$('send').disabled=pending||loading;$('send').textContent=loading?'Carregando IA…':v?'Enviar ↗':'Ativar IA e enviar ↗';$('pill').textContent=v?'● IA local ativa':loading?'◌ Carregando IA':'● IA não iniciada';$('load').disabled=loading||v;$('model').disabled=loading||v;$('device').disabled=loading||v;drawChat()}
 async function diag(){let gpu=false;try{gpu=!!(navigator.gpu&&await navigator.gpu.requestAdapter())}catch(e){}show('WebGPU: '+(gpu?'disponível':'indisponível')+'\nMemória estimada: '+(navigator.deviceMemory?navigator.deviceMemory+' GB':'não informada')+'\nProcessadores lógicos: '+(navigator.hardwareConcurrency||'não informado')+'\nNavegador: '+navigator.userAgent.slice(0,120))}
 $('diagnose').onclick=diag;
 $('load').onclick=async()=>{
  if(loading||ready)return;
  if(!window.Worker){show('Este navegador não oferece suporte a Web Workers.');return}
  let hasGPU=false;try{hasGPU=!!(navigator.gpu&&await navigator.gpu.requestAdapter())}catch(e){}
- if(!hasGPU&&$('device').value!=='wasm'){show('WebGPU indisponível. Escolha CPU (mais lento) se desejar tentar.');return}
- if($('model').value==='qualidade'&&!hasGPU){show('O modelo de 1,5B precisa de uma GPU compatível neste protótipo. Escolha o modelo leve.');return}
+ if(!hasGPU&&$('device').value!=='wasm'){$('device').value='wasm';show('WebGPU indisponível. Tentando executar na CPU do aparelho; o processamento poderá ser lento.')}
+ if($('model').value==='qualidade'&&!hasGPU){$('model').value='leve';show('Modelo de 1,5B exige GPU aqui. Usando o modelo leve na CPU.')}
  loading=true;currentModel=$('model').value;setReady(false);show('Iniciando a IA local e preparando o download…');
  try{worker=new Worker('./atendente-worker.js',{type:'module'});
  worker.onmessage=(e)=>{const m=e.data||{};
   if(m.type==='status')show(m.message);
   if(m.type==='progress')show('Baixando modelo: '+m.progress+'%'+(m.file?' · '+m.file.split('/').pop():'')+'.\nO tamanho do download varia conforme a configuração.');
-  if(m.type==='ready'){loading=false;setReady(true);show('Modelo '+(currentModel==='leve'?'0,5B':'1,5B')+' pronto em '+(m.device==='webgpu'?'GPU':'CPU')+'. Agora você pode conversar com a IA.');navigate('chat')}
+  if(m.type==='ready'){loading=false;setReady(true);show('IA local carregada em '+(m.device==='webgpu'?'GPU':'CPU')+'. As mensagens agora serão processadas pelo modelo.');navigate('chat');if(queuedQuestion){$('prompt').value=queuedQuestion;queuedQuestion=null;$('sendForm').requestSubmit()}}
   if(m.type==='generated')onGenerated(m);
-  if(m.type==='error'){if(m.phase==='load'){loading=false;setReady(false);worker?.terminate();worker=null;show('Falha ao carregar a IA: '+m.message+'\nTente o modelo leve, GPU ou CPU conforme o diagnóstico.')}else onError(m)}
- };worker.onerror=(err)=>{if(loading){loading=false;setReady(false);show('O navegador interrompeu o carregamento. Verifique memória e WebGPU.');}else if(pending)onError({requestId:activeRequest,message:err.message||'Falha no processamento.'})};
+  if(m.type==='error'){if(m.phase==='load'){loading=false;setReady(false);worker?.terminate();worker=null;show('Não foi possível ativar a IA neste aparelho: '+m.message+'. A pergunta continua no campo. Você pode tentar novamente ou verificar o dispositivo em Ensinar e configurar.');queuedQuestion=null}else onError(m)}
+ };worker.onerror=(err)=>{if(loading){loading=false;setReady(false);queuedQuestion=null;worker?.terminate();worker=null;show('O navegador interrompeu o carregamento. Sua mensagem ainda está no campo; confira a memória e tente o modelo leve na CPU.')}else if(pending)onError({requestId:activeRequest,message:err.message||'Falha no processamento.'})};
  worker.postMessage({type:'load',model:currentModel,device:$('device').value});
  }catch(e){loading=false;setReady(false);show('Não foi possível iniciar a IA: '+e.message)}
 };
@@ -122,15 +122,15 @@ function validateReply(q,response){let text=String(response||'').trim().replace(
  if(/\bR\$\s*\d+(?:[.,]\d+)?/.test(text))return 'Para informar valores corretos, preciso que nossa equipe confirme o preço atualizado desse produto.';
  if(/\b(temos em estoque|disponivel em estoque|ja reservei|pedido confirmado|entrega em [0-9]+ minutos)\b/i.test(norm(text))&&!s.whatsapp.facts.trim())return 'Vou solicitar a confirmação da disponibilidade e das condições com nossa equipe, tudo bem?';
  return text.slice(0,1250)}
-function addReply(c,txt,type){let m={role:'assistant',text:txt,type:type||'ai',created:Date.now()};c.messages.push(m);c.messages=c.messages.slice(-30);pending=false;$('send').disabled=!ready;save();drawChat()}
+function addReply(c,txt,type){let m={role:'assistant',text:txt,type:type||'ai',created:Date.now()};c.messages.push(m);c.messages=c.messages.slice(-30);pending=false;$('send').disabled=false;show('Resposta gerada. Revise antes de enviar a qualquer cliente.');save();drawChat()}
 function onGenerated(m){if(m.requestId!==activeRequest)return;const c=session();if(!c)return;const last=[...c.messages].reverse().find(x=>x.role==='user');addReply(c,validateReply(last?.text||'',m.text),'ai')}
 function onError(m){if(m.requestId&&m.requestId!==activeRequest)return;const c=session();if(!c)return;addReply(c,'Não consegui concluir essa resposta pelo modelo local. Encaminhe este caso a um atendente da Drogaria Rocha.','handoff');show('Falha na geração: '+m.message)}
-$('sendForm').onsubmit=(e)=>{e.preventDefault();if(!ready||pending)return;let q=$('prompt').value.trim();if(!q)return;const c=currentSession();c.messages.push({role:'user',text:q,created:Date.now()});c.messages=c.messages.slice(-30);if(c.title==='Nova conversa')c.title=q.slice(0,55);$('prompt').value='';drawSessions();save();
+$('sendForm').onsubmit=(e)=>{e.preventDefault();if(pending)return;let q=$('prompt').value.trim();if(!q)return;if(!ready){queuedQuestion=q;if(!loading){show('Iniciando modelo gratuito para responder à sua mensagem. O primeiro uso requer download e pode ser lento.');$('load').click()}else show('O modelo ainda está carregando. Sua mensagem será enviada automaticamente assim que estiver pronto.');return}const c=currentSession();c.messages.push({role:'user',text:q,created:Date.now()});c.messages=c.messages.slice(-30);if(c.title==='Nova conversa')c.title=q.slice(0,55);$('prompt').value='';drawSessions();save();
  if(clinical(q)){addReply(c,SAFE_CLINICAL,'handoff');return}
  if(checkout(q)){addReply(c,SAFE_ORDER,'handoff');return}
  if(price(q)){addReply(c,SAFE_PRICE,'handoff');return}
  let history=c.messages.slice(-9).map(x=>({role:x.role,content:x.text})),system=promptFor(q);
- pending=true;activeRequest=++requestNumber;$('send').disabled=true;drawChat();
+ pending=true;activeRequest=++requestNumber;$('send').disabled=true;show('A IA está elaborando a resposta…');drawChat();
  try{worker.postMessage({type:'generate',requestId:activeRequest,model:currentModel,messages:[{role:'system',content:system},...history]})}catch(err){onError({requestId:activeRequest,message:err.message})}
 };
 $('prompt').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();$('sendForm').requestSubmit()}};
