@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f5f7fb">
+  <meta name="description" content="Organize seu salário com a regra 50/30/20, acompanhe suas despesas e avance nas suas metas financeiras.">
+  <title>Plano — Controle financeiro 50/30/20</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#inicio" aria-label="Plano, início"><span class="brand-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 22.5 13 15l4.5 4.5L26 9"/><path d="M19.5 9H26v6.5"/></svg></span><span>plano<span class="brand-dot">.</span><small>seu dinheiro, com direção</small></span></a>
+      <div class="side-label">VISÃO GERAL</div>
+      <nav class="main-nav" aria-label="Navegação principal">
+        <button class="nav-item active" data-view="inicio"><span class="nav-icon">▦</span>Resumo</button>
+        <button class="nav-item" data-view="lancamentos"><span class="nav-icon">↕</span>Lançamentos</button>
+        <button class="nav-item" data-view="metas"><span class="nav-icon">◎</span>Minhas metas</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="tip-card"><span class="tip-spark">✳</span><strong>Pequenos passos,<br>grandes planos.</strong><p>Constância vale mais do que começar com muito.</p></div>
+        <button class="nav-item settings-link" data-view="configuracoes"><span class="nav-icon">⚙</span>Configurações</button>
+        <div class="local-note"><span class="privacy-dot"></span> Seus dados ficam neste aparelho</div>
+      </div>
+    </aside>
+
+    <main class="main-area">
+      <header class="topbar">
+        <button class="mobile-menu" id="menuToggle" aria-label="Abrir menu">☰</button>
+        <div class="breadcrumbs"><span>Meu espaço</span><b>/</b><strong id="breadcrumbCurrent">Resumo</strong></div>
+        <div class="top-actions"><div class="month-select"><span class="calendar-icon">▦</span><select id="monthFilter" aria-label="Mês"></select></div><button class="avatar" aria-label="Perfil">R</button></div>
+      </header>
+
+      <section class="view active" id="view-inicio">
+        <div class="welcome-row"><div><div class="eyebrow"><span class="live-dot"></span> SEU PLANO FINANCEIRO</div><h1>Seu dinheiro,<br class="mobile-break"> <span>em boas mãos.</span></h1><p class="welcome-copy">Um passo de cada vez. Veja como seu salário está trabalhando por você.</p></div><button class="button button-primary" id="addLaunchTop"><span>＋</span> Novo lançamento</button></div>
+
+        <div class="summary-grid">
+          <article class="summary-card income-card"><div class="card-label">RENDA DO MÊS <span class="info-pill" title="Valor mensal usado para calcular a regra 50/30/20">i</span></div><div class="summary-value" id="incomeValue">R$ 3.000,00</div><div class="card-foot"><span class="soft-icon">↗</span><span>Base para sua divisão mensal</span></div><button class="card-edit" data-view="configuracoes" aria-label="Editar renda">✎</button></article>
+          <article class="summary-card spend-card"><div class="card-label">DESPESAS REGISTRADAS</div><div class="summary-value" id="spentValue">R$ 0,00</div><div class="card-foot"><span class="status-dot"></span><span id="remainingText">Comece adicionando um lançamento</span></div><div class="tiny-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></article>
+          <article class="summary-card future-card"><div class="card-label">PARA O SEU FUTURO</div><div class="summary-value" id="futureSavedValue">R$ 0,00</div><div class="card-foot"><span class="future-icon">✳</span><span id="futurePercentText">20% da sua renda mensal</span></div><div class="future-orbit orbit-one"></div><div class="future-orbit orbit-two"></div></article>
+        </div>
+
+        <div class="content-grid">
+          <section class="panel budget-panel"><div class="panel-heading"><div><div class="section-kicker">ORGANIZAÇÃO DO MÊS</div><h2>A regra 50 / 30 / 20</h2><p class="panel-subtitle">Uma divisão simples para dar espaço ao presente e ao futuro.</p></div><button class="text-button" data-view="configuracoes">Ajustar divisão <span>→</span></button></div>
+            <div class="budget-legend"><div><span class="legend-dot fixed"></span> Essenciais <small>50%</small></div><div><span class="legend-dot leisure"></span> Lazer <small>30%</small></div><div><span class="legend-dot future"></span> Futuro <small>20%</small></div></div>
+            <div class="budget-list" id="budgetList"></div>
+            <div class="budget-total"><span>Renda mensal planejada</span><strong id="budgetIncome">R$ 3.000,00</strong></div>
+          </section>
+          <section class="panel goal-panel"><div class="panel-heading"><div><div class="section-kicker">SEU PRÓXIMO PASSO</div><h2>Metas que importam</h2></div><button class="icon-button" data-view="metas" aria-label="Ver metas">↗</button></div>
+            <article class="goal-mini"><div class="goal-mini-icon reserve-icon">⌂</div><div class="goal-mini-main"><div class="goal-mini-title">Reserva de emergência <span class="goal-tag">PROTEÇÃO</span></div><div class="goal-mini-caption" id="reserveCaption">Meta equivalente a 6 meses da sua renda</div><div class="progress-track"><span class="reserve-progress" id="reserveProgress"></span></div></div><strong class="goal-mini-value" id="reserveProgressText">0%</strong></article>
+            <article class="goal-mini"><div class="goal-mini-icon passive-icon">↗</div><div class="goal-mini-main"><div class="goal-mini-title">Renda passiva <span class="goal-tag growth-tag">LIBERDADE</span></div><div class="goal-mini-caption" id="passiveCaption">Construa um patrimônio que gere renda</div><div class="progress-track"><span class="passive-progress" id="passiveProgress"></span></div></div><strong class="goal-mini-value" id="passiveProgressText">0%</strong></article>
+            <button class="goal-link" data-view="metas">Acompanhar minhas metas <span>→</span></button>
+          </section>
+        </div>
+
+        <div class="content-grid lower-grid">
+          <section class="panel activity-panel"><div class="panel-heading"><div><div class="section-kicker">ACOMPANHAMENTO</div><h2>Últimos lançamentos</h2></div><button class="text-button" data-view="lancamentos">Ver todos <span>→</span></button></div><div id="recentList" class="recent-list"></div></section>
+          <section class="panel tip-panel"><div class="tip-top"><span class="tip-spark">✳</span><span class="section-kicker">UM LEMBRETE</span></div><h2>Pague seu futuro<br>primeiro.</h2><p>Assim que receber, separe a parte do seu futuro. O que sobra é o seu orçamento real para o mês.</p><div class="tip-bottom"><span class="tip-line"></span><strong>20% hoje podem fazer<br>diferença amanhã.</strong></div><div class="tip-decoration">20<span>%</span></div></section>
+        </div>
+        <footer>Plano é uma ferramenta de organização pessoal. Projeções são estimativas e não garantem rentabilidade. <span>Feito para você cuidar bem do seu dinheiro.</span></footer>
+      </section>
+
+      <section class="view" id="view-lancamentos">
+        <div class="page-heading"><div><div class="eyebrow"><span class="live-dot"></span> MOVIMENTAÇÃO DO SEU DINHEIRO</div><h1>Lançamentos</h1><p>Registre entradas e despesas para entender seu mês.</p></div><button class="button button-primary" id="addLaunchPage"><span>＋</span> Novo lançamento</button></div>
+        <div class="summary-grid compact-grid"><article class="summary-card income-card"><div class="card-label">RENDA MENSAL PLANEJADA</div><div class="summary-value" id="launchIncome">R$ 3.000,00</div><div class="card-foot"><span class="soft-icon">↗</span><span>Definida nas configurações</span></div></article><article class="summary-card spend-card"><div class="card-label">TOTAL DE SAÍDAS NO MÊS</div><div class="summary-value" id="launchExpenses">R$ 0,00</div><div class="card-foot"><span class="status-dot"></span><span>Conforme seus lançamentos</span></div></article><article class="summary-card future-card"><div class="card-label">ENTRADAS REGISTRADAS</div><div class="summary-value" id="launchEntries">R$ 0,00</div><div class="card-foot"><span class="future-icon">＋</span><span>Além da renda mensal base</span></div></article></div>
+        <section class="panel transactions-panel"><div class="transaction-toolbar"><div><div class="section-kicker">HISTÓRICO</div><h2>Seus lançamentos</h2></div><div class="filter-wrap"><select id="typeFilter" aria-label="Filtrar tipo"><option value="todos">Todos os tipos</option><option value="despesa">Despesas</option><option value="entrada">Entradas</option></select><select id="categoryFilter" aria-label="Filtrar categoria"><option value="todas">Todas as categorias</option><option value="essenciais">Essenciais</option><option value="lazer">Lazer</option><option value="futuro">Futuro</option><option value="outras">Outras entradas</option></select></div></div><div class="table-scroll"><table><thead><tr><th>DESCRIÇÃO</th><th>CATEGORIA</th><th>DATA</th><th>VALOR</th><th></th></tr></thead><tbody id="transactionRows"></tbody></table></div><div id="emptyTransactions" class="empty-state"><div class="empty-illustration">↕</div><strong>Nenhum lançamento por aqui</strong><p>Registre sua primeira despesa ou entrada e comece a acompanhar seu dinheiro.</p><button class="button button-outline" id="addLaunchEmpty">＋ Adicionar lançamento</button></div></section>
+        <footer>Entradas extras são exibidas separadamente da renda mensal planejada. <span>Seus lançamentos ficam salvos neste navegador.</span></footer>
+      </section>
+
+      <section class="view" id="view-metas">
+        <div class="page-heading"><div><div class="eyebrow"><span class="live-dot"></span> SEU FUTURO COMEÇA COM UM PLANO</div><h1>Minhas metas</h1><p>Transforme o que você deseja em um caminho que dá para acompanhar.</p></div></div>
+        <div class="goal-feature-grid"><article class="goal-feature reserve-feature"><div class="goal-feature-top"><div class="goal-feature-icon">⌂</div><span class="goal-tag">PROTEÇÃO</span></div><div class="section-kicker">PRIMEIRO, SUA SEGURANÇA</div><h2>Reserva de<br>emergência</h2><p>O vídeo usa como referência seis salários. Aumente esse valor se suas despesas essenciais pedirem uma reserva maior.</p><div class="goal-amounts"><div><small>VALOR GUARDADO</small><strong id="reserveSavedFull">R$ 0,00</strong></div><div><small>META</small><strong id="reserveTargetFull">R$ 18.000,00</strong></div></div><div class="progress-track large-track"><span class="reserve-progress" id="reserveProgressFull"></span></div><div class="goal-progress-meta"><span id="reservePercentFull">0% concluído</span><span id="reserveLeft">Faltam R$ 18.000,00</span></div><div class="goal-input-row"><label for="reserveInput">Quanto você já tem guardado?</label><div class="input-with-action"><span>R$</span><input id="reserveInput" type="number" min="0" step="0.01" placeholder="0,00"><button id="saveReserve" class="button button-dark">Salvar valor</button></div></div></article>
+          <article class="goal-feature passive-feature"><div class="goal-feature-top"><div class="goal-feature-icon">↗</div><span class="goal-tag growth-tag">RENDA PASSIVA</span></div><div class="section-kicker">PLANEJE O PATRIMÔNIO NECESSÁRIO</div><h2>Faça seu dinheiro<br>gerar renda.</h2><p>O cálculo usa sua renda desejada e uma taxa mensal estimada. Retornos variam e podem ser negativos; isso não é uma promessa.</p><div class="passive-target-box"><span>Patrimônio estimado para a meta</span><strong id="passiveCapitalValue">R$ 277.778,00</strong><small id="passiveMath">R$ 3.000,00 por mês ÷ 1,08% ao mês</small></div><div class="goal-amounts"><div><small>PATRIMÔNIO ATUAL</small><strong id="capitalSavedFull">R$ 0,00</strong></div><div><small>RENDA MENSAL DESEJADA</small><strong id="passiveIncomeFull">R$ 3.000,00</strong></div></div><div class="progress-track large-track"><span class="passive-progress" id="passiveProgressFull"></span></div><div class="goal-progress-meta"><span id="passivePercentFull">0% concluído</span><span id="capitalLeft">Faltam R$ 277.778,00</span></div><div class="goal-input-row"><label for="capitalInput">Seu patrimônio investido para essa meta</label><div class="input-with-action"><span>R$</span><input id="capitalInput" type="number" min="0" step="0.01" placeholder="0,00"><button id="saveCapital" class="button button-dark">Salvar valor</button></div></div></article></div>
+        <section class="panel strategy-note"><span class="note-mark">i</span><p><strong>Sobre a conta do vídeo:</strong> R$ 3.000 ÷ 1,08% ≈ R$ 277.778. O exemplo do vídeo usa R$ 279.000 (93 salários), uma aproximação. A taxa é apenas uma hipótese editável, antes de impostos e inflação; não representa rendimento garantido.</p><button class="text-button" data-view="configuracoes">Editar premissas <span>→</span></button></section>
+        <footer>Use metas como guia de organização, não como recomendação de investimento. <span>Revise suas premissas com frequência.</span></footer>
+      </section>
+
+      <section class="view" id="view-configuracoes">
+        <div class="page-heading"><div><div class="eyebrow"><span class="live-dot"></span> DO SEU JEITO</div><h1>Configurações</h1><p>Ajuste os valores que orientam seu plano financeiro.</p></div></div>
+        <div class="settings-grid"><section class="panel settings-panel"><div class="section-kicker">SUA RENDA</div><h2>Renda mensal base</h2><p class="panel-subtitle">Use o valor líquido que realmente cai na sua conta.</p><label class="field-label" for="salarySetting">Salário líquido mensal</label><div class="money-input"><span>R$</span><input id="salarySetting" type="number" min="0" step="0.01"></div><button id="saveSalary" class="button button-primary settings-save">Salvar renda</button></section>
+          <section class="panel settings-panel"><div class="section-kicker">SUA DIVISÃO MENSAL</div><h2>Personalize os percentuais</h2><p class="panel-subtitle">A referência do vídeo é 50% essenciais, 30% lazer e 20% futuro. Os percentuais precisam somar 100%.</p><div class="percent-settings"><label>Essenciais <div class="percent-input"><input id="fixedSetting" type="number" min="0" max="100"><span>%</span></div></label><label>Lazer <div class="percent-input"><input id="leisureSetting" type="number" min="0" max="100"><span>%</span></div></label><label>Futuro <div class="percent-input"><input id="futureSetting" type="number" min="0" max="100"><span>%</span></div></label></div><div id="percentMessage" class="field-hint">Total: 100%</div><button id="savePercentages" class="button button-primary settings-save">Salvar divisão</button></section>
+          <section class="panel settings-panel"><div class="section-kicker">RENDA PASSIVA</div><h2>Taxa mensal hipotética</h2><p class="panel-subtitle">Serve somente para estimar o patrimônio necessário à renda passiva desejada.</p><label class="field-label" for="yieldSetting">Taxa estimada ao mês (%)</label><div class="money-input"><input id="yieldSetting" type="number" min="0.01" max="10" step="0.01"><span>%</span></div><div class="field-hint">Uma taxa maior reduz o patrimônio calculado, mas também aumenta a incerteza. O cálculo não considera inflação ou impostos.</div><button id="saveYield" class="button button-primary settings-save">Salvar taxa</button></section>
+          <section class="panel settings-panel"><div class="section-kicker">SEUS DADOS</div><h2>Privacidade e cópia de segurança</h2><p class="panel-subtitle">O Plano não usa conta nem envia seus dados a um servidor. Eles ficam no armazenamento local do navegador.</p><div class="backup-actions"><button class="button button-outline" id="exportData">Baixar cópia dos dados</button><label class="button button-outline upload-button">Importar cópia<input type="file" id="importData" accept="application/json"></label></div><button class="danger-link" id="clearData">Apagar todos os dados deste aparelho</button></section></div>
+        <footer>Ao limpar os dados do navegador, seus lançamentos podem ser removidos. Baixe uma cópia para guardar. <span>Você controla suas informações.</span></footer>
+      </section>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="launchModal" aria-hidden="true"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><div class="modal-heading"><div><div class="section-kicker">NOVO REGISTRO</div><h2 id="modalTitle">Adicionar lançamento</h2></div><button class="modal-close" id="closeModal" aria-label="Fechar">×</button></div><form id="launchForm"><div class="toggle-tabs"><button type="button" class="toggle-tab active" data-type="despesa">Despesa</button><button type="button" class="toggle-tab" data-type="entrada">Entrada extra</button></div><input type="hidden" id="entryType" value="despesa"><label class="field-label" for="descriptionInput">Descrição</label><input class="text-input" id="descriptionInput" maxlength="60" placeholder="Ex.: Conta de energia" required><div class="form-two"><div><label class="field-label" for="amountInput">Valor</label><div class="money-input"><span>R$</span><input id="amountInput" type="number" min="0.01" step="0.01" placeholder="0,00" required></div></div><div><label class="field-label" for="dateInput">Data</label><input class="text-input" id="dateInput" type="date" required></div></div><label class="field-label" for="categoryInput">Categoria</label><select class="text-input" id="categoryInput"><option value="essenciais">Essenciais</option><option value="lazer">Lazer</option><option value="futuro">Futuro</option><option value="outras">Outras entradas</option></select><div class="modal-actions"><button type="button" class="button button-outline" id="cancelModal">Cancelar</button><button type="submit" class="button button-primary">Salvar lançamento</button></div></form></section></div>
+  <div class="toast" id="toast" role="status"></div>
+  <script src="app.js"></script>
+</body>
+</html>
