@@ -11,7 +11,33 @@
 @media(max-width:1200px){.grid-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.goal-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:1000px){.sidebar{width:205px}.main{margin-left:205px;width:calc(100% - 205px)}.twocol,.bigleft,.calendar-layout{grid-template-columns:1fr}.content{padding:24px}.date-pill{display:none}}@media(max-width:720px){.sidebar{display:none}.main{width:100%;margin-left:0}.topbar{height:62px;padding:0 16px}.breadcrumb{font-size:11px}.header-add{font-size:12px;padding:9px 11px}.content{padding:22px 14px 115px}.page-head{align-items:flex-start;flex-direction:column;gap:15px;margin-bottom:19px}.page-head h1{font-size:28px}.page-head .page-actions{width:100%;display:flex;flex-wrap:wrap}.page-head .page-actions .button{flex:1}.grid-stats{gap:10px}.stat{padding:15px 13px;border-radius:13px}.stat strong{font-size:27px}.stat .stat-label{font-size:11px}.stat .stat-foot{font-size:10px}.stat-icon{margin-bottom:8px;width:32px;height:32px}.panel{padding:16px;border-radius:13px}.twocol,.bigleft{gap:12px;margin-bottom:12px}.week-grid,.goal-grid{grid-template-columns:1fr;gap:12px}.calendar-layout{grid-template-columns:1fr}.cal-day{height:60px;padding:6px}.cal-weekday{font-size:10px}.bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:7;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:1px;background:#101d31;padding:8px 4px max(8px,env(safe-area-inset-bottom));border-top:1px solid #2b425e;box-shadow:0 -10px 30px #0004}.bottom-nav a{text-align:center;color:#91aac8;font-size:9px;display:grid;justify-items:center;gap:2px;padding:4px 0;border-radius:7px}.bottom-nav a span{font-size:22px;line-height:1.2}.bottom-nav a.active{color:var(--cyan);background:#17394a}.empty-dash{display:block;padding:20px}.empty-dash .button{margin-top:8px}.settings-row{align-items:flex-start;flex-direction:column}.settings-row .button{width:100%}.dialog{padding:20px;border-radius:13px}.form-grid{gap:10px}#toast-root{bottom:90px;right:10px;left:10px;max-width:none}.chart-wrap{height:195px}}@media(max-width:360px){.form-grid{grid-template-columns:1fr}.field.full{grid-column:1}.stat strong{font-size:23px}.bottom-nav a{font-size:8px}.bottom-nav a span{font-size:18px}.top-right .header-add{font-size:11px}}
 
   </style>
-  <script defer>
+
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="brand" href="#dashboard"><span class="brand-icon">◈</span><span>RITMO<span class="brand-plus">+</span><small>ALTA PERFORMANCE</small></span></a>
+    <div class="nav-label">SEU ESPAÇO</div>
+    <nav id="sidebar-nav" aria-label="Navegação principal">
+      <a href="#dashboard" data-nav="dashboard"><span class="nav-icon">◫</span> Visão geral</a>
+      <a href="#semana" data-nav="semana"><span class="nav-icon">▦</span> Minha semana</a>
+      <a href="#metas" data-nav="metas"><span class="nav-icon">◎</span> Metas</a>
+      <a href="#agenda" data-nav="agenda"><span class="nav-icon">▣</span> Agenda</a>
+      <a href="#analise" data-nav="analise"><span class="nav-icon">▥</span> Análise</a>
+    </nav>
+    <div class="side-bottom"><a href="#ajustes" data-nav="ajustes"><span class="nav-icon">⚙</span> Configurações</a><div class="local-note"><span class="signal"></span> Seus dados ficam neste navegador</div><div class="side-footer">RITMO+ <span>v1.0 · MVP</span></div></div>
+  </aside>
+  <main class="main">
+    <header class="topbar"><div class="breadcrumb"><span class="dot"></span> <span id="breadcrumbs">Painel de desempenho</span></div><div class="top-right"><span class="date-pill" id="header-date"></span><button type="button" class="button primary header-add" data-action="new-task">+ Nova tarefa</button></div></header>
+    <div id="app-content" class="content" aria-live="polite"><section class="panel"><h2>Carregando seu painel…</h2><p class="soft-text">Preparando o seu planejamento.</p></section></div>
+  </main>
+  <nav class="bottom-nav" aria-label="Navegação mobile">
+    <a href="#dashboard" data-nav="dashboard"><span>◫</span>Painel</a><a href="#semana" data-nav="semana"><span>▦</span>Semana</a><a href="#metas" data-nav="metas"><span>◎</span>Metas</a><a href="#agenda" data-nav="agenda"><span>▣</span>Agenda</a><a href="#analise" data-nav="analise"><span>▥</span>Análise</a><a href="#ajustes" data-nav="ajustes"><span>⚙</span>Ajustes</a>
+  </nav>
+</div>
+<div id="modal-root"></div>
+<div id="toast-root" role="status" aria-live="polite"></div>
+  <script>
 'use strict';
 /* Ritmo+ — MVP local, sem dependências externas. */
 const STORE_KEY='ritmo:app:v1';
@@ -116,33 +142,17 @@ document.addEventListener('submit',e=>{const f=e.target;if(!['task-form','goal-f
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
 window.addEventListener('hashchange',()=>{window.scrollTo(0,0);render()});
-render();
+function startRitmoApp(){
+  try { render(); }
+  catch (error) {
+    console.error('Falha ao iniciar o Ritmo+', error);
+    const root=document.getElementById('app-content');
+    if(root) root.innerHTML='<section class="panel"><h2>Não foi possível carregar o painel</h2><p class="soft-text">Atualize esta página. Seus dados salvos neste navegador não serão apagados.</p></section>';
+  }
+}
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',startRitmoApp,{once:true});
+else startRitmoApp();
 
   </script>
-</head>
-<body>
-<div class="app-shell">
-  <aside class="sidebar">
-    <a class="brand" href="#dashboard"><span class="brand-icon">◈</span><span>RITMO<span class="brand-plus">+</span><small>ALTA PERFORMANCE</small></span></a>
-    <div class="nav-label">SEU ESPAÇO</div>
-    <nav id="sidebar-nav" aria-label="Navegação principal">
-      <a href="#dashboard" data-nav="dashboard"><span class="nav-icon">◫</span> Visão geral</a>
-      <a href="#semana" data-nav="semana"><span class="nav-icon">▦</span> Minha semana</a>
-      <a href="#metas" data-nav="metas"><span class="nav-icon">◎</span> Metas</a>
-      <a href="#agenda" data-nav="agenda"><span class="nav-icon">▣</span> Agenda</a>
-      <a href="#analise" data-nav="analise"><span class="nav-icon">▥</span> Análise</a>
-    </nav>
-    <div class="side-bottom"><a href="#ajustes" data-nav="ajustes"><span class="nav-icon">⚙</span> Configurações</a><div class="local-note"><span class="signal"></span> Seus dados ficam neste navegador</div><div class="side-footer">RITMO+ <span>v1.0 · MVP</span></div></div>
-  </aside>
-  <main class="main">
-    <header class="topbar"><div class="breadcrumb"><span class="dot"></span> <span id="breadcrumbs">Painel de desempenho</span></div><div class="top-right"><span class="date-pill" id="header-date"></span><button type="button" class="button primary header-add" data-action="new-task">+ Nova tarefa</button></div></header>
-    <div id="app-content" class="content" aria-live="polite"></div>
-  </main>
-  <nav class="bottom-nav" aria-label="Navegação mobile">
-    <a href="#dashboard" data-nav="dashboard"><span>◫</span>Painel</a><a href="#semana" data-nav="semana"><span>▦</span>Semana</a><a href="#metas" data-nav="metas"><span>◎</span>Metas</a><a href="#agenda" data-nav="agenda"><span>▣</span>Agenda</a><a href="#analise" data-nav="analise"><span>▥</span>Análise</a><a href="#ajustes" data-nav="ajustes"><span>⚙</span>Ajustes</a>
-  </nav>
-</div>
-<div id="modal-root"></div>
-<div id="toast-root" role="status" aria-live="polite"></div>
 </body>
 </html>
