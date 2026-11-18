@@ -17,10 +17,10 @@
   const money = value => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0);
   const round = value => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
   const escapeHtml = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
-  const currentMonthKey = () => {
+  function currentMonthKey() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  };
+  }
   const getMonthKey = date => String(date || '').slice(0, 7);
   const readNumber = selector => Math.max(0, Number($(selector)?.value) || 0);
 
