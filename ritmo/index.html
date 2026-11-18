@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#0b1426" />
   <meta name="description" content="Ritmo: planejamento semanal, metas e produtividade em um único lugar." />
   <title>Ritmo — Alta Performance</title>
-  <link rel="stylesheet" href="./style.css?v=3">
+  <link rel="stylesheet" href="./style.css?v=4">
 
 </head>
 <body>
@@ -33,7 +33,18 @@
 </div>
 <div id="modal-root"></div>
 <div id="toast-root" role="status" aria-live="polite"></div>
-  <script src="./app.js?v=3" defer></script>
+  <script>
+  window.addEventListener('error', function (e) {
+    var root = document.getElementById('app-content');
+    if (root && root.querySelector('#init-message')) {
+      var detail = document.createElement('div');
+      detail.textContent = String(e.message || 'Erro ao carregar o aplicativo');
+      root.innerHTML = '<section class="panel"><h2>Falha ao iniciar</h2><p>Não foi possível abrir o aplicativo. Detalhes:</p></section>';
+      root.querySelector('section').appendChild(detail);
+    }
+  });
+  </script>
+  <script src="./app.js?v=4" defer onerror="document.getElementById('app-content').textContent='O arquivo principal do aplicativo não pôde ser carregado. Atualize a página.'"></script>
 <noscript><p style="color:white;padding:20px">Ative o JavaScript no navegador para usar o Ritmo+.</p></noscript>
 </body>
 </html>
