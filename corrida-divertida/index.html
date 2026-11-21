@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#8bdcff">
+<title>Corrida Divertida</title>
+<style>
+:root{--ink:#24334a;--pink:#ff7bab;--yellow:#ffd75e;--blue:#54c9f4;--green:#77d89c}
+*{box-sizing:border-box} body{margin:0;min-height:100vh;background:linear-gradient(#8bdcff 0 58%,#b8efb5 58%);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);display:flex;justify-content:center;align-items:center;padding:12px;touch-action:manipulation}
+.game{width:min(920px,100%);background:#fff8e9;border:5px solid white;border-radius:28px;box-shadow:0 12px 30px #31506a30;overflow:hidden}
+header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;gap:8px}h1{font-size:clamp(20px,4vw,30px);margin:0;color:#f05e91}.badge{background:#fff;border-radius:999px;padding:8px 12px;font-weight:800;font-size:14px}
+.scene{position:relative;margin:0 12px;border-radius:20px;overflow:hidden;background:linear-gradient(#93ddff 0 53%,#a9e8a1 53%);height:clamp(230px,48vh,390px)}canvas{width:100%;height:100%;display:block}
+.controls{padding:12px 18px 16px;display:flex;justify-content:center;align-items:center;gap:14px;flex-wrap:wrap}.big{border:0;border-radius:20px;padding:14px 22px;font-size:clamp(18px,4vw,24px);font-weight:900;color:var(--ink);box-shadow:0 5px 0 #00000020;cursor:pointer;touch-action:manipulation;min-height:62px}.big:active{transform:translateY(4px);box-shadow:0 1px 0 #00000020}.go{background:var(--yellow)}.reset{background:#d8f3ff}.message{width:100%;text-align:center;font-size:clamp(16px,3.5vw,21px);font-weight:800;min-height:28px}.hint{font-size:13px;color:#56657a;text-align:center;margin:0 12px 14px}.confetti{position:absolute;inset:0;pointer-events:none;font-size:30px;animation:pop .8s ease-out forwards}@keyframes pop{from{transform:translateY(20px) scale(.4);opacity:0}to{transform:translateY(-25px) scale(1.2);opacity:1}}
+</style></head>
+<body><main class="game" aria-label="Jogo de corrida infantil"><header><h1>🏁 Corrida Divertida</h1><span class="badge" id="distance">Vamos passear!</span></header><div class="scene"><canvas id="track" aria-label="Carrinho colorido correndo numa pista"></canvas></div><section class="controls"><button class="big go" id="go" aria-label="Acelerar">🚗 VAI, CARRINHO!</button><button class="big reset" id="reset" aria-label="Começar de novo">🔄 DE NOVO</button><div class="message" id="message" aria-live="polite">Toque no botão amarelo para correr!</div></section><p class="hint">Pode tocar várias vezes. O carrinho vai até a bandeirinha! 🎈</p></main>
+<script>
+(()=>{const canvas=document.querySelector('#track'),ctx=canvas.getContext('2d'),go=document.querySelector('#go'),reset=document.querySelector('#reset'),message=document.querySelector('#message'),distance=document.querySelector('#distance');let progress=0,finished=false,cloudOffset=0,stars=[];let w=800,h=360,dpr=1;
+function size(){const r=canvas.getBoundingClientRect();dpr=Math.min(devicePixelRatio||1,2);canvas.width=r.width*dpr;canvas.height=r.height*dpr;w=r.width;h=r.height;ctx.setTransform(dpr,0,0,dpr,0,0);draw()}
+function rounded(x,y,ww,hh,r,color){ctx.fillStyle=color;ctx.beginPath();ctx.roundRect(x,y,ww,hh,r);ctx.fill()}
+function draw(){ctx.clearRect(0,0,w,h);
+// distant green hills
+ctx.fillStyle='#79d389';ctx.beginPath();ctx.moveTo(0,h*.55);for(let x=0;x<=w+80;x+=80)ctx.quadraticCurveTo(x+40,h*.37,x+80,h*.55);ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.fill();
+// happy clouds
+for(let i=0;i<3;i++){let x=((i*w*.45+cloudOffset*.25)%(w+100))-60,y=35+i%2*35;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,y,18,0,7);ctx.arc(x+22,y-8,23,0,7);ctx.arc(x+48,y,17,0,7);ctx.fill()}
+// flowers
+for(let i=0;i<13;i++){let x=(i*91-(cloudOffset*.8)%91+w)%w,y=h*.61+(i%3)*10;ctx.fillStyle=['#ff7bab','#ffd75e','#fff'][i%3];for(let a=0;a<5;a++){ctx.beginPath();ctx.arc(x+Math.cos(a*1.256)*5,y+Math.sin(a*1.256)*5,3,0,7);ctx.fill()}ctx.fillStyle='#ffcf55';ctx.beginPath();ctx.arc(x,y,2.5,0,7);ctx.fill()}
+// racetrack
+const roadY=h*.68,roadH=h*.27;rounded(-10,roadY,w+20,roadH,18,'#69798b');ctx.fillStyle='#fff';for(let x=-(cloudOffset*1.4%70);x<w;x+=70)rounded(x,roadY+roadH*.49,38,5,3,'#fff8d2');
+// finish flag, drawn toward right until reached
+const finishX=w*.91-progress*(w*.72);if(finishX>w*.18){ctx.strokeStyle='#fff';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(finishX,roadY-82);ctx.lineTo(finishX,roadY+roadH*.45);ctx.stroke();let size=15;for(let row=0;row<3;row++)for(let col=0;col<4;col++){ctx.fillStyle=(row+col)%2?'#fff':'#35415b';ctx.fillRect(finishX+2+col*size/2,roadY-80+row*size/2,size/2,size/2)}}
+// car
+const carX=w*.20,carY=roadY+roadH*.27;ctx.fillStyle='#0002';ctx.beginPath();ctx.ellipse(carX+38,carY+38,43,8,0,0,7);ctx.fill();rounded(carX,carY+7,79,30,12,'#ff648b');rounded(carX+14,carY-8,43,24,9,'#ff648b');rounded(carX+22,carY-5,15,16,5,'#bff2ff');rounded(carX+40,carY-5,13,16,5,'#bff2ff');ctx.fillStyle='#384257';for(let x of [carX+17,carX+58]){ctx.beginPath();ctx.arc(x,carY+36,10,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(x,carY+36,4,0,7);ctx.fill();ctx.fillStyle='#384257'}ctx.fillStyle='#fff4a6';rounded(carX+70,carY+17,7,8,3,'#fff4a6');
+// driver face
+ctx.fillStyle='#ffd6ad';ctx.beginPath();ctx.arc(carX+34,carY+3,11,0,7);ctx.fill();ctx.fillStyle='#39465b';ctx.beginPath();ctx.arc(carX+31,carY+2,1.5,0,7);ctx.arc(carX+38,carY+2,1.5,0,7);ctx.fill();ctx.strokeStyle='#b85454';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(carX+34,carY+4,4,0,Math.PI);ctx.stroke();
+if(finished){ctx.fillStyle='#fff';ctx.font='bold 34px system-ui';ctx.textAlign='center';ctx.fillText('CHEGOU! 🎉',w/2,h*.31);}}
+function advance(){if(finished)return;progress=Math.min(1,progress+.085);cloudOffset+=30;stars.push({x:w*.58,y:h*.52,life:18});if(progress>=1){finished=true;message.textContent='Você conseguiu! Parabéns! 🎉';distance.textContent='Chegamos! 🏁';go.textContent='🌟 CONSEGUI!';}else{message.textContent=['Que legal! 🚙','Vai, carrinho! 💨','Quase lá! ⭐'][Math.floor(Math.random()*3)];distance.textContent=Math.ceil((1-progress)*10)+' toques até a chegada';}draw();if(finished)celebrate()}
+function celebrate(){const scene=document.querySelector('.scene');for(let i=0;i<12;i++){let e=document.createElement('span');e.className='confetti';e.textContent=['⭐','🎈','🎉'][i%3];e.style.left=(Math.random()*90)+'%';e.style.top=(Math.random()*75)+'%';scene.appendChild(e);setTimeout(()=>e.remove(),900)}}
+function restart(){progress=0;finished=false;distance.textContent='Vamos passear!';message.textContent='Toque no botão amarelo para correr!';go.textContent='🚗 VAI, CARRINHO!';draw()}
+go.addEventListener('click',advance);reset.addEventListener('click',restart);window.addEventListener('resize',size);size();
+})();
+</script></body></html>
