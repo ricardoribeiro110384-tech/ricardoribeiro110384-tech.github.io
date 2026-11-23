@@ -16,7 +16,9 @@
   lock();
   const sdk = window.supabase;
   if (!sdk?.createClient) { const loading=document.getElementById('pulso-entry-loading');if(loading)loading.textContent='Não foi possível conectar. Verifique sua internet e recarregue a página.';return; }
-  const client = sdk.createClient(url, publicKey, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'pulso_auth_v1'}});
+  // Sessões ficam apenas na memória; abrir/recarregar exige entrada explícita.
+  try { localStorage.removeItem('pulso_auth_v1'); } catch (_) {}
+  const client = sdk.createClient(url, publicKey, {auth:{persistSession:false,autoRefreshToken:true,detectSessionInUrl:true,storageKey:'pulso_auth_v2'}});
   const cloudBtn = document.createElement('button');
   cloudBtn.className = 'btn'; cloudBtn.type = 'button'; cloudBtn.textContent = 'Entrar na minha conta';
   document.querySelector('.topbar').append(cloudBtn);
@@ -68,7 +70,8 @@
   q('pulso-auth-switch').onclick=()=>setMode(mode==='login'?'signup':'login');q('pulso-auth-reset').onclick=()=>setMode('reset');q('pulso-auth-close').onclick=()=>{};
   overlay.querySelector('form').addEventListener('submit',async ev=>{ev.preventDefault();const email=q('pulso-email').value.trim(),password=q('pulso-password').value;const btn=q('pulso-auth-submit');btn.disabled=true;message('Aguarde...');try{let result;if(mode==='signup'){result=await client.auth.signUp({email,password,options:{emailRedirectTo:site}});if(result.error)throw result.error;if(!result.data.session){setMode('login');message('Cadastro solicitado. Confira seu e-mail, confirme a conta e depois entre.');return;}}else if(mode==='reset'){result=await client.auth.resetPasswordForEmail(email,{redirectTo:site});if(result.error)throw result.error;setMode('login');message('Se a conta existir, você receberá um link de recuperação.');return;}else if(mode==='recovery'){result=await client.auth.updateUser({password});if(result.error)throw result.error;q('pulso-password').value='';const {data}=await client.auth.getSession();await loadAccount(data.session);return;}else{result=await client.auth.signInWithPassword({email,password});if(result.error)throw result.error;}q('pulso-password').value='';await loadAccount(result.data.session);}catch(e){message(errorText(e));}finally{btn.disabled=false;}});
   window.addEventListener('online',()=>void sync());window.addEventListener('beforeunload',e=>{if(owner&&(dirty||running)){e.preventDefault();e.returnValue='';}});
-  client.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'){setMode('recovery');return;}if(event==='SIGNED_OUT'&&owner){guestMode();return;}if(event==='INITIAL_SESSION'&&session&&mode!=='recovery')setTimeout(()=>void loadAccount(session),0);});
+  client.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'){setMode('recovery');return;}if(event==='SIGNED_OUT'&&owner){guestMode();return;}// Não abrir o painel a partir de uma sessão inicial ou link de confirmação.
+    });
   updateStatus(status);
   setMode('login');
   document.getElementById('pulso-entry-loading')?.remove();
